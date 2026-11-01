@@ -12,7 +12,7 @@
 |------|-----|------|
 | 编排模式 | `com.example.agent`（手写版）、`com.example.langgraph4j.patterns`（状态图版） | 九大模式，逐行对照 |
 | 运行载体 | `agent` 手写 / `langgraph4j` 状态图 / `agentloop` 原语 loop / `workflow` 动态工作流 | 同一剧本可比选型（loopbench） |
-| 治理层 | `com.example.harness` | Budget 预算、RunRecord 档案、ToolGate 工具网关、ApprovalPolicy 审批、RuleDistiller 规则蒸馏、RunReportDemo 运行报表、OuterLoopDemo 一键外循环、Sandbox 沙箱执行后端、ContextWindow/CachingLlm 上下文管理、AskPolicy/StructuredQuestion 交互、Skill/EventBus 技能扩展；记忆层（分层/检索/整理）、路由筛选、凭据保管、磁盘 checkpoint、PendingAction 审批载荷、CodeRunner 脚本批处理 |
+| 治理层 | `com.example.harness` | 预算 / 审批 / 工具网关 / 凭据 / 沙箱 / 注入防线 / 路径验证 / 磁盘 checkpoint / 失败归因 / 限流 / 可观测 / 红队；记忆系统（三路召回、写回闸门、遗忘、五维评测）与情境记忆；Sensor 反馈层；Harness 模板；技能与事件总线；运行档案 + 报表 + 一键外循环 |
 | 动态工作流 | `com.example.workflow` | Claude Code「动态 harness」六模式的 Java 版 `agent()`/`parallel()`，预算与留痕已接治理层 |
 | 多 Agent 拓扑 | `com.example.multiagent` | 四种组织形式各归其位（Workflow/Supervisor/Hierarchical/Swarm）+ 委派护栏 + 选型决策树，默认立场是不拆；生产深化：Supervisor 并行 fan-out（并发上限 + 故障隔离）、Swarm 整轮时间盒 |
 
@@ -49,72 +49,24 @@ STORM = 规划(大纲) + 工具调研 + 写作 的内容生成特化
 
 ## 运行
 
-仓库分两模块：`core/` 是库（`agent-core`，语义化版本，生产可用），`demo/` 是集成验证（52 个 demo，库的可执行规约）。命令从仓库根跑，`scripts/dev.sh <id>` 一条搞定（先装 parent 和 core 再 exec，改了 core 也不用手动 install）；等价形式 `mvn -q exec:java@<id> -pl demo`（首次或改 core 后先 `mvn -q install -N && mvn -q install -pl core`）。
+两模块：`core/` 是库（`agent-core`，语义化版本，生产可用），`demo/` 是 52 个
+demo（库的可执行规约）。命令从仓库根跑，统一入口 `scripts/dev.sh <id>`
+（自动先装 parent+core，改完 core 直接跑；等价 `mvn -q exec:java@<id> -pl demo`）。
+
+第一次跑，这三条足够感受全貌：
 
 ```bash
-mvn -q exec:java -pl demo     # 运行全部 9 个模式的演示（手写版，需已 install core）
-scripts/dev.sh graph      # langgraph4j 状态图版：九个图版剧本演示
-scripts/dev.sh loopbench    # 图版 vs 原语版 loop 同剧本对比
-scripts/dev.sh archive      # 运行档案：四种载体（loop/状态图/动态工作流/多 Agent）同一张审计底账
-scripts/dev.sh distill      # 外循环蒸馏：失败模式 → 规则草稿（剧本历史，含采纳检验）
-scripts/dev.sh distillreal  # 外循环真实版：真实撞护栏 → 真实档案 → 蒸出规则（需 KIMI_API_KEY）
-scripts/dev.sh workflow     # 动态工作流六模式（剧本）
-scripts/dev.sh sandbox      # 沙箱执行后端：内存快照恢复 + 本地策略拦截
-scripts/dev.sh context      # 上下文管理：逐步裁剪 + 输出上限 + 响应缓存
-scripts/dev.sh interaction  # 用户交互：结构化提问 + 策略拦截 + 流式渲染
-scripts/dev.sh skills       # 技能与事件总线：按需加载 + 订阅解耦
-scripts/dev.sh memory       # 记忆层：自动注入 + 主动检索 + 异步整理
-scripts/dev.sh routing      # 路由与筛选：候选先收窄，模型按任务挑
-scripts/dev.sh credentials  # 凭据保管：密钥不进模型上下文，执行前夜注入
-scripts/dev.sh checkpoint   # 磁盘 checkpoint：进程重启从盘上接着跑
-scripts/dev.sh pending      # 待处理操作：系统强制的审批载荷 + 面板按钮
-scripts/dev.sh coderunner   # 代码执行批处理：模型写脚本，沙箱跑循环
-scripts/dev.sh toolbase     # 工具底座：治理壳 + fail-closed + 渠道准入 + 统一装配
-scripts/dev.sh hotreload    # 技能热刷新：落盘即捡起，进程不重启
-scripts/dev.sh memorysystem # 记忆系统：触发 / 三路召回 / 融合 / 写回 / 指标
-scripts/dev.sh memorybench  # 记忆治理：写入闸门 / 遗忘清理 / 五维评测
-scripts/dev.sh memoryreal "[1-3]"  # 记忆系统真实模型闭环（需 KIMI_API_KEY）
-scripts/dev.sh sensor       # Sensor 反馈层：计算/推断分野 / 修正指引回流 / 转向循环
-scripts/dev.sh sensorreal "[1-3]"  # Sensor 真实闭环（需 KIMI_API_KEY）
-scripts/dev.sh template      # Harness 模板：拓扑拴束 / 实例化 / 漂移检查
-scripts/dev.sh pathguard     # 路径验证流水线：规范化→白名单→运行时校验防穿透
-scripts/dev.sh diagnose      # 失败归因：下游抖动 / Prompt 漂移 / 模型退化
-scripts/dev.sh episodic      # 情境记忆：失败档案蒸馏教训，同类任务召回进场
-scripts/dev.sh injection     # 间接提示注入防线：扫描/脱敏/不可信标记
-scripts/dev.sh topology      # 多 Agent 四拓扑：Workflow/Supervisor/Hierarchical/Swarm + 委派护栏 + 选型决策
-scripts/dev.sh parallel "[real]"  # Supervisor 并行 fan-out：同时开工省墙钟，单专家故障不拖死整轮（real=真实主管并发分派）
-scripts/dev.sh swarmdeadline # Swarm 整轮时间盒：到点就地收工，已有产出不丢
-scripts/dev.sh stream        # LLM 流式输出：逐块消费 + 预算熔断
-scripts/dev.sh streamreal "[1-2]"  # 流式真实对照组：SSE 逐块接收 / 真实熔断（需 KIMI_API_KEY）
-scripts/dev.sh eval         # 轨迹级评估：Pass@k / 步数统计 / 对抗探测（剧本）
-scripts/dev.sh foldeval     # 折叠对照评估：Subagent 分派 vs 折回主 Loop，从过变挂逐题显形（剧本）
-scripts/dev.sh realfoldeval "[每阶段遍数]"  # 折叠对照真实版：订单题真实跑折叠 loop，原版 vs 加固 Skill（需 KIMI_API_KEY）
-scripts/dev.sh protocolprobe   # 协议自检探针：真实 ReAct 实验前置预检，裸 prompt vs 带协议（剧本+真实）
-scripts/dev.sh ratelimit        # 限流与背压：并发上限（信号量）+ 最小调用间隔，真实 LLM 是稀缺资源
-scripts/dev.sh telemetry    # 可观测性：TelemetryLlm 指标装饰 + Prometheus 文本导出 + span 树 JSONL trace（剧本）
-scripts/dev.sh redteam      # 安全面：PromptFuzzer 变异 fuzz 护栏/解析器 + 红队 12 探针对打脱敏管线（剧本）
-scripts/dev.sh skilldoctor  # 技能库体检：使用频率 + 内容重复度 + 触发撞车 → 膨胀候选
-scripts/dev.sh realeval "[k] [startIndex]"  # 真实模型轨迹评估：k 次 trial 并行开跑 + 限流闸（需 KIMI_API_KEY）
-scripts/dev.sh report       # 运行报表：底账终态分布 / 按 runner 成本 / 护栏专项 / 失败模式 TOP
-scripts/dev.sh outerloop    # 一键外循环：真账蒸馏 → 去重 → 落草稿（real 参数先造真实档案，需 KIMI_API_KEY）
-scripts/dev.sh topologyreal "[1-6]"  # 多 Agent 拓扑真实对照组：画像/主管/总监/客服接力/写密集劝退/双路由对照（需 KIMI_API_KEY）
-scripts/dev.sh supervisorreal "[1-3]"  # Supervisor 真实对照组：平级分派/专家工具化/全真实矩阵（需 KIMI_API_KEY）
-scripts/dev.sh workflow "real [1-7]"  # 动态工作流真实模型分片
+scripts/dev.sh graph      # 九大模式的状态图版（手写版：mvn -q exec:java -pl demo）
+scripts/dev.sh loopbench  # 四种运行载体同剧本对比
+scripts/dev.sh report     # 历次运行沉淀成一张报表
 ```
 
-其余入口（article / real / realpatterns / realadvanced / eval / realeval /
-foldeval / realfoldeval / skilldoctor / protocolprobe / ratelimit /
-telemetry / redteam /
-judge / loop / gate / approval / distill / distillreal / sandbox / coderunner / workflow /
-context / interaction / routing / credentials / checkpoint / pending /
-toolbase / hotreload / memory / memorysystem / memorybench / memoryreal /
-sensor / sensorreal / template / pathguard / diagnose / episodic /
-injection / topology / topologyreal / supervisorreal / parallel /
-swarmdeadline / stream / streamreal / report / outerloop）见
-[LANGGRAPH4J.md](LANGGRAPH4J.md)「运行」一节。
+其余四十多个入口不在这里罗列——每个 id 写在 [LANGGRAPH4J.md](LANGGRAPH4J.md)
+对应能力的章节里，读到哪节跑哪节；全量 id 以 `demo/pom.xml` 的 exec
+executions 为准。
 
-演示默认使用 `ScriptedLlm`（脚本化假模型）预置对话，完整打印每个模式的控制流
-轨迹（Thought / Action / Observation / 评分 / 批语 / 反思等）。
+剧本 demo 用 `ScriptedLlm` 假模型，离线可跑，完整打印控制流轨迹；真实模型
+对照组要 `KIMI_API_KEY`（见下节）。
 
 ## 接入真实模型
 
@@ -148,17 +100,11 @@ core/src/main/java/com/example/    # agent-core：库（生产可用，语义化
 ├── multiagent/                 # 四拓扑 + 委派护栏 + 选型决策 + 并行/时间盒
 ├── workflow/                   # 动态工作流：LLM 自己生成子 Agent 图
 └── harness/                    # 治理层：Budget / RunRecord+RunStore / ToolGate
-    └── ApprovalPolicy / RuleDistiller / config（统一配置 AgentConfig）
-        / sandbox（沙箱 + CodeRunner 脚本批处理）/ context（上下文）
-        / interaction（交互 + Web 面板 + PendingAction 审批载荷）
-        / planning（Todo+搜索策略）/ memory（分层记忆+触发+三路召回+指标
-        +写入闸门+遗忘清理+自动清理周期+五维评测）
-        / routing（筛选+模型路由）/ credentials（凭据保管）
-        / toolbase（治理壳+fail-closed+渠道准入+统一装配）
-        / skills（技能+事件总线+operation 检索+热刷新）/ probe（协议自检探针）
-        / sensor（反馈层：计算/推断感知+修正指引+质量分层+转向台账）
-        / template（Harness 模板：拓扑约定+sensor 一捆+漂移检查）
-        / diagnostics（失败归因）/ security（注入防线）
+                                # / ApprovalPolicy / RuleDistiller 在包顶层，
+                                # 其余一个能力一个子包：config / context / credentials
+                                # / diagnostics / interaction / memory / planning
+                                # / probe / redteam / routing / sandbox / security
+                                # / sensor / skills / telemetry / template / toolbase
 
 demo/src/main/java/com/example/    # agent-demo：52 个 demo = core 的可执行规约与回归套件
 └── （与 core 同包结构，只放 *Demo / DemoRunner / LoopBenchmark；

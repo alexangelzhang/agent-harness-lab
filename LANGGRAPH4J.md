@@ -64,15 +64,9 @@ scripts/dev.sh realadvanced # 真实 LLM 进阶：HITL 审批中断 + 客户端�
 无需 API Key 的前两个命令用 `ScriptedLlm` 脚本化假模型预置对话，完整打印图的执行轨迹。
 （不带 `@` 的 `mvn -q exec:java -pl demo` 默认跑手写版九大模式 DemoRunner。）
 
-治理层与能力层的全部 demo 入口（sandbox / context / interaction / memory /
-memorysystem / memorybench / routing / credentials / checkpoint / pending /
-coderunner / toolbase / hotreload / skills / sensor / template / pathguard /
-diagnose / episodic / injection / topology / topologyreal / supervisorreal /
-parallel / swarmdeadline / stream / streamreal / report / outerloop /
-foldeval / realfoldeval / skilldoctor / protocolprobe / ratelimit /
-telemetry / redteam /
-distill / distillreal / workflow / archive / gate / approval 等）见
-[README](README.md) 运行清单一节，每个 id 都已在 pom 登记 execution。
+治理层与能力层的四十多个 demo 不在这里单列：每个 id 随能力在下方对应章节
+首现（如「运行档案」一节的 `mvn exec:java@archive`），全量 id 以
+demo/pom.xml 的 exec executions 为准。
 
 ## 接入真实 LLM（LangChain4jLlm / KimiLlm）
 

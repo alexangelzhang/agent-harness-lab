@@ -25,8 +25,9 @@ LANGGRAPH4J.md 是理解全貌的两张地图，动代码前先读对应章节�
   等价形式 `mvn -q exec:java@<id> -pl demo`（首次或改 core 后先
   `mvn -q install -N && mvn -q install -pl core`）。**别用 `-pl demo -am` 跑
   exec**——goal 会落到 aggregator parent 上报 mainClass 缺失。
-  id 全表见 LANGGRAPH4J.md/README；新增 demo 要四登记（pom execution +
-  AGENTS.md id 列表 + README 运行行 + LANGGRAPH4J.md）。
+  id 全表以 demo/pom.xml 的 exec executions 为准（LANGGRAPH4J.md 各章节随
+  能力引用）；新增 demo 两登记：pom execution + LANGGRAPH4J.md 对应章节
+  运行行。README 运行一节只放快速上手入口，不再逐条罗列。
 - 单测：`mvn -q test -pl core`（JUnit 5，纯逻辑无 LLM 依赖的类先铺——
   RunStore/MetricsRegistry/TelemetryLlm/Tracer/RateLimitedLlm/PromptFuzzer 已有）；
   `mvn -q clean verify` 会连带单测一起跑，是提交前的收尾底线。
@@ -50,7 +51,7 @@ LANGGRAPH4J.md 是理解全貌的两张地图，动代码前先读对应章节�
   反面教材），demo 输出和文档都是；
 - 研读外部文章走三步，一步不省：① 全文浓缩存档到 `docs/`（文件名见现有
   约定，开头注明出处链接）；② 文章点名的能力落地成代码进对应包（机制
-  对了不算完）；③ 剧本 demo 验证 + 登记 pom/README/LANGGRAPH4J，能接
+  对了不算完）；③ 剧本 demo 验证 + 登记 pom/LANGGRAPH4J，能接
   真实模型的再补真实对照组。只存档不落地的研读不算闭环；
 - 运行档案落在 `runs/runs.jsonl`，多种载体共用；`rules/` 下三份草稿
   （AGENTS.draft.md 剧本造历史、AGENTS.real-draft.md 真实运行、
