@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.example</groupId>
+        <artifactId>agent-design-patterns</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>agent-core</artifactId>
+    <packaging>jar</packaging>
+
+    <name>agent-core</name>
+    <description>生产可用的 Agent 核心库：编排模式（ReAct/Reflection/REWOO/Plan&amp;Solve/Reflexion/LLMCompiler/
+        路由/并行）、四种运行载体（手写/状态图/原语 loop/动态工作流）、多 Agent 拓扑（四模式+护栏+选型）、
+        治理层（记忆/Sensor/技能/工具网关/凭据/注入防线/路径验证/失败归因/协议探针）与统一审计底账。
+        语义化版本：1.0.0 起公开包为稳定 API，demo 模块（agent-design-patterns）是其集成验证。</description>
+
+    <dependencies>
+        <!-- LangGraph 的 Java 移植版（独立于 LangChain4j/Spring AI，可搭配任意 LLM 客户端） -->
+        <dependency>
+            <groupId>org.bsc.langgraph4j</groupId>
+            <artifactId>langgraph4j-core</artifactId>
+            <version>${langgraph4j.version}</version>
+        </dependency>
+
+        <!-- 官方 langchain4j 集成模块（1.9.6 锁定 langchain4j 1.22.0：ChatMessage 序列化、Tool 节点等） -->
+        <dependency>
+            <groupId>org.bsc.langgraph4j</groupId>
+            <artifactId>langgraph4j-langchain4j</artifactId>
+            <version>${langgraph4j.version}</version>
+        </dependency>
+
+        <!-- OpenAI 兼容客户端：OpenAiChatModel 指向任意 OpenAI 兼容端点（此处为 Kimi agent 网关） -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-open-ai</artifactId>
+            <version>${langchain4j.version}</version>
+        </dependency>
+
+        <!-- 运行档案（harness 包 RunStore）的 JSON 序列化 -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.22.1</version>
+        </dependency>
+
+        <!-- 单测：JUnit 5（仅 test 域，库发布产物不带测试依赖） -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

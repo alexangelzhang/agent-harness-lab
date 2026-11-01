@@ -1,0 +1,25 @@
+# 构建产物
+target/
+*.class
+*.jar
+!.mvn/wrapper/*.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# 运行时产物（底账/归档/蒸馏草稿/回归日志，全部由 demo 重新生成）
+runs/
+rules/
+report/
+*.log
+nohup.out
+
+# 本地环境
+.env
+.env.*
+.DS_Store

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.example</groupId>
+    <artifactId>agent-design-patterns</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+
+    <name>agent-harness-lab</name>
+    <description>Agent 工程实验场（Java）：从九大设计模式到生产级 Harness——编排模式、四种运行载体（手写/状态图/原语 loop/动态工作流）与治理层（预算/档案/工具网关/审批/规则蒸馏）</description>
+
+    <!-- 两模块：core 是库（agent-core，语义化版本），demo 是集成验证（全部入口照旧 mvn -q exec:java@id，cwd=仓库根） -->
+    <modules>
+        <module>core</module>
+        <module>demo</module>
+    </modules>
+
+    <properties>
+        <maven.compiler.release>17</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <langgraph4j.version>1.9.6</langgraph4j.version>
+        <langchain4j.version>1.22.0</langchain4j.version>
+        <junit.version>5.11.4</junit.version>
+    </properties>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <!-- 编译期开启全部 lint 并视为错误；path 警告来自第三方依赖树的坏 classpath 条目，与代码质量无关，单独排除 -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.13.0</version>
+                    <configuration>
+                        <showWarnings>true</showWarnings>
+                        <compilerArgs>
+                            <arg>-Xlint:all</arg>
+                            <arg>-Xlint:-path</arg>
+                            <arg>-Werror</arg>
+                        </compilerArgs>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        <plugins>
+            <!-- 单测入口：mvn test / verify 自动跑 JUnit 5（core 模块的回归底线） -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
+        </plugins>
+    </build>
+</project>
