@@ -3,7 +3,7 @@ package com.example.agentloop;
 import com.example.harness.Budget;
 import com.example.langgraph4j.llm.CountingLlm;
 import com.example.langgraph4j.llm.EnvException;
-import com.example.langgraph4j.llm.KimiLlm;
+import com.example.langgraph4j.llm.JdkHttpLlm;
 import com.example.langgraph4j.llm.ScriptedLlm;
 
 /**
@@ -11,7 +11,7 @@ import com.example.langgraph4j.llm.ScriptedLlm;
  *
  * <p>场景 1（剧本，离线）：验收方前两轮各挑一个毛病（没体现低温 / 没体现慢），
  * 第三轮放行——验证反馈意见确实回流到了行动方的提示词里。
- * <p>场景 2（真实模型，需要 KIMI_API_KEY）：同一个任务交给 KimiLlm 跑。
+ * <p>场景 2（真实模型，需要 LLM_API_KEY）：同一个任务交给 JdkHttpLlm 跑。
  * <p>场景 3（剧本，离线）：LLM 网关先超时两次（环境故障），第三次调用成功。
  * maxTurns 只给了 1 轮修复额度——如果超时也算一轮，任务直接失败；
  * 环境故障单独计数、不占额度，所以照样达标。
@@ -32,10 +32,10 @@ public class AgentLoopDemo {
         scriptedScenario();
         envFailureScenario();
         budgetScenario();
-        if (System.getenv("KIMI_API_KEY") != null) {
+        if (System.getenv("LLM_API_KEY") != null) {
             realScenario();
         } else {
-            System.out.println("\n（未检测到 KIMI_API_KEY，跳过真实模型场景）");
+            System.out.println("\n（未检测到 LLM_API_KEY，跳过真实模型场景）");
         }
         System.exit(0);
     }
@@ -106,10 +106,10 @@ public class AgentLoopDemo {
 
     private static void realScenario() {
         System.out.println("""
-                ── 场景 2（真实模型 KimiLlm）：验收不过就带反馈再来 ──
+                ── 场景 2（真实模型 JdkHttpLlm）：验收不过就带反馈再来 ──
                 """);
-        var actor = new LlmActor(new KimiLlm());
-        var verifier = new LlmVerifier(new KimiLlm(), GOAL);
+        var actor = new LlmActor(new JdkHttpLlm());
+        var verifier = new LlmVerifier(new JdkHttpLlm(), GOAL);
         print(new AgentLoop(actor, verifier, 3).run(TASK));
     }
 

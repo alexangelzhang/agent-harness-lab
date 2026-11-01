@@ -1,5 +1,5 @@
 #!/bin/bash
-# 真实轨全量回归：18 分片（真实 LLM，需 KIMI_API_KEY）。
+# 真实轨全量回归：18 分片（真实 LLM，需 LLM_API_KEY）。
 #
 # 分片清单（与 LANGGRAPH4J 时间线「N 分片全绿」口径一致）：
 #   workflow real 1-6（动态工作流真实模式）  6 片

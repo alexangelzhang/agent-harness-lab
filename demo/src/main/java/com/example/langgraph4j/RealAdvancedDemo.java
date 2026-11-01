@@ -49,8 +49,8 @@ public class RealAdvancedDemo {
                 + AgentConfig.load().model() + "）");
         System.out.println("=".repeat(66));
 
-        demoHitl(new RetryingLlm(LangChain4jLlm.kimi()));
-        demoHybridSearch(new RetryingLlm(LangChain4jLlm.kimi()));
+        demoHitl(new RetryingLlm(LangChain4jLlm.fromEnv()));
+        demoHybridSearch(new RetryingLlm(LangChain4jLlm.fromEnv()));
         demoClientLevelSearch();
 
         System.exit(0);
@@ -66,7 +66,7 @@ public class RealAdvancedDemo {
         ProtocolProbe.requireOrExit(llm, REACT_PROTOCOL, Set.of("Calculator", "Search", "WebSearch", "Finish"));
 
         // WebSearch 的内核是客户端层 $web_search：图保留节点可见性/可中断性，执行交给托管搜索
-        LlmClient clientSearch = new RetryingLlm(WebSearchLlm.kimi());
+        LlmClient clientSearch = new RetryingLlm(WebSearchLlm.fromEnv());
         Map<String, Function<String, String>> tools = new LinkedHashMap<>();
         tools.put("Calculator", ArticleDemo.calculatorTool());
         tools.put("Search", WebSearchTool::search);
@@ -163,7 +163,7 @@ public class RealAdvancedDemo {
         System.out.println("\n【客户端层搜索】同一事实问题，改由 WebSearchLlm（$web_search 内置工具）回答");
         System.out.println("  无状态图参与：LLM 客户端内部走 $web_search 循环，一次 complete() 直接出答案");
 
-        LlmClient llm = new RetryingLlm(WebSearchLlm.kimi());
+        LlmClient llm = new RetryingLlm(WebSearchLlm.fromEnv());
         long t0 = System.currentTimeMillis();
         String answer = llm.complete(question);
         System.out.println("\n  [一次调用耗时] " + (System.currentTimeMillis() - t0) / 1000 + "s（含 $web_search 两轮）");

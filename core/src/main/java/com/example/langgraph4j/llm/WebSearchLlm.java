@@ -15,10 +15,10 @@ import java.util.regex.Pattern;
  * 客户端层联网搜索：把网关内置 {@code $web_search} 工具下沉到 LLM 客户端内部循环，
  * 对 {@link LlmClient} 的使用方（状态图节点）完全透明 —— 图上只有一个「会自己查资料的 LLM」。
  *
- * <p>为什么不用 langchain4j 发请求：该网关要求 {@code $web_search} 以
- * {@code {"type":"builtin_function"}} 形式注册（Moonshot 私有扩展），langchain4j 的
+ * <p>为什么不用 langchain4j 发请求：网关侧 {@code $web_search} 内置工具要求以
+ * {@code {"type":"builtin_function"}} 形式注册（Moonshot 系网关的私有扩展），langchain4j 的
  * ToolSpecification 只能序列化成 {@code type:"function"}，会被网关忽略 —— 所以这里像
- * {@link KimiLlm} 一样手写 HTTP + JSON，请求体完全可控。</p>
+ * {@link JdkHttpLlm} 一样手写 HTTP + JSON，请求体完全可控。</p>
  *
  * <p>协议（curl 实测验证）：</p>
  * <ol>
@@ -54,8 +54,9 @@ public final class WebSearchLlm implements LlmClient {
         this.modelName = modelName;
     }
 
-    /** 默认配置：指向 Kimi agent 网关，环境变量经 {@link AgentConfig} 统一装配。 */
-    public static WebSearchLlm kimi() {
+    /** 默认配置：环境变量经 {@link AgentConfig} 统一装配（LLM_API_KEY / LLM_BASE_URL / LLM_MODEL）。
+     *  注意 $web_search 是网关侧内置工具（Moonshot 系网关的私有扩展），端点不支持时本类不可用。 */
+    public static WebSearchLlm fromEnv() {
         AgentConfig config = AgentConfig.load();
         return new WebSearchLlm(config.chatBase(), config.requireApiKey(), config.model());
     }
@@ -135,7 +136,7 @@ public final class WebSearchLlm implements LlmClient {
         return false;
     }
 
-    // ---- 手写 JSON 小工具（KimiLlm 同款风格；长文本字段手工扫描，不用星号正则——
+    // ---- 手写 JSON 小工具（JdkHttpLlm 同款风格；长文本字段手工扫描，不用星号正则——
     //      图执行器线程栈小，(...)* 匹配上万字符的 reasoning_content 会递归爆栈） ----
 
     /** 提取 JSON 字符串字段（值可能很长，如 content / reasoning_content）。 */

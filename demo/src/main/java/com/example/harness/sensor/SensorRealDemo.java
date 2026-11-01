@@ -7,7 +7,7 @@ import com.example.agentloop.LoopResult;
 import com.example.agentloop.LoopStep;
 import com.example.agentloop.SensorVerifier;
 import com.example.langgraph4j.llm.CountingLlm;
-import com.example.langgraph4j.llm.KimiLlm;
+import com.example.langgraph4j.llm.JdkHttpLlm;
 
 import java.util.List;
 
@@ -22,11 +22,11 @@ import java.util.List;
  *
  * <p>三个场景（真实调用慢，{@code -Dexec.args="n"} 只跑第 n 个）：</p>
  * <ol>
- *   <li><b>真实拦截</b>：Kimi 当 actor 写发布说明（任务里确有数据
+ *   <li><b>真实拦截</b>：真实模型当 actor 写发布说明（任务里确有数据
  *       没拿到的部分，看模型会不会留 TODO）；SensorVerifier 在岗，
  *       拦下就把「怎么改」回流；LLM 验收只判内容标准，结构性问题
  *       不烧它的额度；</li>
- *   <li><b>推断型真实评审</b>：LlmReviewSensor 用 Kimi 对一段
+ *   <li><b>推断型真实评审</b>：LlmReviewSensor 用 真实模型对一段
  *       过度设计的代码做语义评审，打印发现；</li>
  *   <li><b>真实攒台账</b>：把场景一每一轮的真实产出过一遍计算型
  *       sensor，逐轮记进 SensorLedger——真实运行里触发过谁、谁
@@ -37,7 +37,7 @@ import java.util.List;
  * 不断言——真实输出有波动，机制行为必须稳定。</p>
  *
  * <p>运行：{@code mvn exec:java@sensorreal -Dexec.args="[1-3]"}，
- * 需要 {@code KIMI_API_KEY}，缺了明确报错退出。</p>
+ * 需要 {@code LLM_API_KEY}，缺了明确报错退出。</p>
  */
 public class SensorRealDemo {
 
@@ -51,15 +51,15 @@ public class SensorRealDemo {
             + "不许出现 TODO 字样。";
 
     public static void main(String[] args) {
-        if (System.getenv("KIMI_API_KEY") == null) {
-            System.err.println("缺少 KIMI_API_KEY 环境变量，无法调用真实模型");
+        if (System.getenv("LLM_API_KEY") == null) {
+            System.err.println("缺少 LLM_API_KEY 环境变量，无法调用真实模型");
             System.exit(1);
         }
         int pick = args.length > 0 ? Integer.parseInt(args[0]) : 0;
         String line = "=".repeat(66);
         System.out.println(line);
         System.out.println("Sensor 反馈层真实闭环：真实拦截 / 推断评审 / 真实台账");
-        System.out.println("模式：真实模型（KimiLlm）" + (pick > 0 ? "，只跑场景 " + pick : ""));
+        System.out.println("模式：真实模型（JdkHttpLlm）" + (pick > 0 ? "，只跑场景 " + pick : ""));
         System.out.println(line);
 
         boolean ok = true;
@@ -86,8 +86,8 @@ public class SensorRealDemo {
     /** 场景一：真实模型行动，sensor 拦 TODO，修正指引回流。 */
     private static boolean scenarioRealIntercept() {
         header("场景一：真实拦截", "TODO 是模型自己写的，改也是它自己改的");
-        CountingLlm actorLlm = new CountingLlm(new KimiLlm());
-        CountingLlm verifierLlm = new CountingLlm(new KimiLlm());
+        CountingLlm actorLlm = new CountingLlm(new JdkHttpLlm());
+        CountingLlm verifierLlm = new CountingLlm(new JdkHttpLlm());
         SensorSuite suite = new SensorSuite("", 5)
                 .add(new PlaceholderSensor())
                 .add(new DiffSizeSensor("说明长度红线", 12));
@@ -116,7 +116,7 @@ public class SensorRealDemo {
     /** 场景二：推断型 sensor 用真实模型做语义评审。 */
     private static boolean scenarioRealReview() {
         header("场景二：推断型真实评审", "语义重复/过度设计只有它能碰");
-        LlmReviewSensor review = new LlmReviewSensor(new KimiLlm());
+        LlmReviewSensor review = new LlmReviewSensor(new JdkHttpLlm());
         CodeChange change = new CodeChange("OrderService.java", """
                 public class OrderService {
                     public double priceA(int n) { return n > 10 ? n * 0.9 : n; }
@@ -130,7 +130,7 @@ public class SensorRealDemo {
                 """);
         List<Finding> findings = review.check(change);
         System.out.println("  待审代码：三段一模一样的价格计算 + 五个预留占位方法。");
-        System.out.println("  Kimi 语义评审发现 " + findings.size() + " 条：");
+        System.out.println("  真实模型语义评审发现 " + findings.size() + " 条：");
         findings.forEach(f -> {
             System.out.println("    [" + f.severity() + "] " + f.location());
             System.out.println("      问题：" + f.problem());
@@ -145,8 +145,8 @@ public class SensorRealDemo {
     /** 场景三：场景一的真实产出逐轮过计算型 sensor，攒真实台账。 */
     private static boolean scenarioRealLedger() {
         header("场景三：真实攒台账", "真实运行里谁响过、谁没响过");
-        CountingLlm actorLlm = new CountingLlm(new KimiLlm());
-        CountingLlm verifierLlm = new CountingLlm(new KimiLlm());
+        CountingLlm actorLlm = new CountingLlm(new JdkHttpLlm());
+        CountingLlm verifierLlm = new CountingLlm(new JdkHttpLlm());
         SensorSuite suite = new SensorSuite("", 5)
                 .add(new PlaceholderSensor())
                 .add(new DiffSizeSensor("说明长度红线", 12))

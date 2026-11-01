@@ -1,39 +1,39 @@
 package com.example.langgraph4j;
 
-import com.example.langgraph4j.llm.KimiLlm;
+import com.example.langgraph4j.llm.JdkHttpLlm;
 
 /**
  * 流式输出真实对照组（{@code StreamDemo} 的真实版，2026-11-01）。
  *
  * <p>剧本版证明「逐块消费 / 中途中止的代码路径对」；这个 demo 证明
- * 「真实 Kimi 的 SSE 流真的一块块来，且提前关流真的中止」。硬断言只校
+ * 「真实模型的 SSE 流真的一块块来，且提前关流真的中止」。硬断言只校
  * 结构：块数 ≥ 1、拼接结果非空、熔断场景确实提前收工，措辞不断言。</p>
  *
  * <p>两个场景（真实调用慢，{@code -Dexec.args="n"} 只跑第 n 个）：</p>
  * <ol>
- *   <li><b>完整流式</b>：让 Kimi 写一两句产品文案，逐块打印、计数、拼接，
+ *   <li><b>完整流式</b>：让 真实模型写一两句产品文案，逐块打印、计数、拼接，
  *       校 SSE 解析不把内容弄丢（转义口径与 complete 一致）；</li>
  *   <li><b>真实熔断</b>：同一个生成只给 30 个字的预算，超预算立即中止，
  *       校「提前关流」真实发生且拿到了可用前缀。</li>
  * </ol>
  *
  * <p>运行：{@code mvn exec:java@streamreal -Dexec.args="[1-2]"}，
- * 需要 {@code KIMI_API_KEY}，缺了明确报错退出。</p>
+ * 需要 {@code LLM_API_KEY}，缺了明确报错退出。</p>
  */
 public class StreamRealDemo {
 
     private static int bad;
 
     public static void main(String[] args) {
-        if (System.getenv("KIMI_API_KEY") == null) {
-            System.err.println("缺少 KIMI_API_KEY 环境变量，无法调用真实模型");
+        if (System.getenv("LLM_API_KEY") == null) {
+            System.err.println("缺少 LLM_API_KEY 环境变量，无法调用真实模型");
             System.exit(1);
         }
         int pick = args.length > 0 ? Integer.parseInt(args[0]) : 0;
         String line = "=".repeat(66);
         System.out.println(line);
         System.out.println("流式输出真实对照组：SSE 逐块接收 / 真实熔断");
-        System.out.println("模式：真实模型（KimiLlm）" + (pick > 0 ? "，只跑场景 " + pick : ""));
+        System.out.println("模式：真实模型（JdkHttpLlm）" + (pick > 0 ? "，只跑场景 " + pick : ""));
         System.out.println(line);
 
         if (pick == 0 || pick == 1) {
@@ -58,7 +58,7 @@ public class StreamRealDemo {
     /** 场景一：完整流式，逐块打印并拼接。 */
     private static void scenarioFullStream() {
         header("场景一 · 完整流式：一句话文案逐块到达");
-        KimiLlm llm = new KimiLlm();
+        JdkHttpLlm llm = new JdkHttpLlm();
         StringBuilder assembled = new StringBuilder();
         int[] chunks = {0};
         long start = System.currentTimeMillis();
@@ -80,7 +80,7 @@ public class StreamRealDemo {
     /** 场景二：真实熔断——预算 30 字，超了立即关流。 */
     private static void scenarioAbort() {
         header("场景二 · 真实熔断：预算 30 字，超了立即关流");
-        KimiLlm llm = new KimiLlm();
+        JdkHttpLlm llm = new JdkHttpLlm();
         int budget = 30;
         StringBuilder head = new StringBuilder();
         long start = System.currentTimeMillis();

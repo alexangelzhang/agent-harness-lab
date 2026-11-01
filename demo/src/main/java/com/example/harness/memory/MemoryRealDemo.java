@@ -1,6 +1,6 @@
 package com.example.harness.memory;
 
-import com.example.langgraph4j.llm.KimiLlm;
+import com.example.langgraph4j.llm.JdkHttpLlm;
 import com.example.langgraph4j.llm.LlmClient;
 
 import java.util.ArrayList;
@@ -32,7 +32,7 @@ import java.util.regex.Pattern;
  * 真实输出有波动，机制行为必须稳定。</p>
  *
  * <p>运行：{@code mvn exec:java@memoryreal -Dexec.args="[1-3]"}，
- * 需要 {@code KIMI_API_KEY}，缺了明确报错退出。</p>
+ * 需要 {@code LLM_API_KEY}，缺了明确报错退出。</p>
  */
 public class MemoryRealDemo {
 
@@ -40,16 +40,16 @@ public class MemoryRealDemo {
             "CONFIDENCE[:：]\\s*([01](?:\\.\\d+)?)");
 
     public static void main(String[] args) {
-        if (System.getenv("KIMI_API_KEY") == null) {
-            System.err.println("缺少 KIMI_API_KEY 环境变量，无法调用真实模型");
+        if (System.getenv("LLM_API_KEY") == null) {
+            System.err.println("缺少 LLM_API_KEY 环境变量，无法调用真实模型");
             System.exit(1);
         }
         int pick = args.length > 0 ? Integer.parseInt(args[0]) : 0;
-        LlmClient llm = new KimiLlm();
+        LlmClient llm = new JdkHttpLlm();
         String line = "=".repeat(66);
         System.out.println(line);
         System.out.println("记忆系统真实闭环：召回注入 / 提取写回 / 写入闸门 / 遗忘在岗");
-        System.out.println("模式：真实模型（KimiLlm）" + (pick > 0 ? "，只跑场景 " + pick : ""));
+        System.out.println("模式：真实模型（JdkHttpLlm）" + (pick > 0 ? "，只跑场景 " + pick : ""));
         System.out.println(line);
 
         boolean ok = true;

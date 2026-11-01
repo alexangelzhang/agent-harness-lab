@@ -27,7 +27,7 @@ import java.util.Map;
  * <ul>
  *   <li>{@code mvn exec:java@outerloop}：纯离线，吃现有底账；</li>
  *   <li>{@code mvn exec:java@outerloop -Dexec.args=real}：先跑 1 轮紧护栏真实
- *       接力（复用 {@link RuleDistillRealDemo#runTightRelay}，需 KIMI_API_KEY）
+ *       接力（复用 {@link RuleDistillRealDemo#runTightRelay}，需 LLM_API_KEY）
  *       再造档案，适合接在真实 demo 回归之后定期执行。</li>
  * </ul>
  */
@@ -40,8 +40,8 @@ public class OuterLoopDemo {
 
     public static void main(String[] args) throws Exception {
         boolean real = args.length > 0 && "real".equals(args[0]);
-        if (real && System.getenv("KIMI_API_KEY") == null) {
-            System.err.println("real 模式需要 KIMI_API_KEY 环境变量");
+        if (real && System.getenv("LLM_API_KEY") == null) {
+            System.err.println("real 模式需要 LLM_API_KEY 环境变量");
             System.exit(1);
         }
         header(real);
@@ -169,7 +169,7 @@ public class OuterLoopDemo {
         System.out.println();
         System.out.println(line);
         System.out.println("  一键外循环：真账进 → 草稿出（蒸馏 → 去重 → 落盘 → 采纳检验）");
-        System.out.println("  模式：" + (real ? "real（先造 1 条真实护栏档案，需 KIMI_API_KEY）"
+        System.out.println("  模式：" + (real ? "real（先造 1 条真实护栏档案，需 LLM_API_KEY）"
                 : "离线（直接吃现有底账）"));
         System.out.println(line);
     }

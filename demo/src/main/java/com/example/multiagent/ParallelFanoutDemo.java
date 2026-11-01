@@ -21,7 +21,7 @@ import java.util.function.BiConsumer;
  * 专家抛异常，结果包记「[调用失败]」，综合照常出稿。专家用
  * {@link ScriptedLlm} 的 lambda 预置「慢」，离线可跑、毫秒级。</p>
  *
- * <p>第四幕（{@code -Dexec.args="real"}，需 KIMI_API_KEY）：真实 Kimi 主管
+ * <p>第四幕（{@code -Dexec.args="real"}，需 LLM_API_KEY）：真实 真实模型主管
  * 走 dispatchParallel，接线 {@code CountingLlm(RetryingLlm(RateLimitedLlm(...)))}
  * ——并发闸限流在内、重试在外；开跑前先过 {@link ProtocolProbe} 分派协议
  * 预检（专员名单写进 prompt）。</p>
@@ -114,12 +114,12 @@ public class ParallelFanoutDemo {
         System.exit(bad == 0 ? 0 : 1);
     }
 
-    /** 第四幕：真实 Kimi 主管并行分派（剧本专家接活），限流接线 + 协议预检。 */
+    /** 第四幕：真实 真实模型主管并行分派（剧本专家接活），限流接线 + 协议预检。 */
     private static void actRealBoss(String task) {
         System.out.println();
-        System.out.println("—— 第四幕：真实 Kimi 主管并行分派（限流在内重试在外）——");
-        if (System.getenv("KIMI_API_KEY") == null) {
-            System.err.println("  缺少 KIMI_API_KEY，第四幕跳过");
+        System.out.println("—— 第四幕：真实 真实模型主管并行分派（限流在内重试在外）——");
+        if (System.getenv("LLM_API_KEY") == null) {
+            System.err.println("  缺少 LLM_API_KEY，第四幕跳过");
             bad++;
             return;
         }
@@ -131,7 +131,7 @@ public class ParallelFanoutDemo {
         CountingLlm boss = new CountingLlm(
                 new com.example.langgraph4j.llm.RetryingLlm(
                         new com.example.langgraph4j.llm.RateLimitedLlm(
-                                new com.example.langgraph4j.llm.KimiLlm(), 4, 200)));
+                                new com.example.langgraph4j.llm.JdkHttpLlm(), 4, 200)));
         ProtocolProbe.requireOrExit(boss, ProtocolProbe.rosterProtocol(names), DISPATCH_LINE, names);
 
         CountingLlm synth = new CountingLlm(new ScriptedLlm()

@@ -32,10 +32,11 @@ LANGGRAPH4J.md 是理解全貌的两张地图，动代码前先读对应章节�
   RunStore/MetricsRegistry/TelemetryLlm/Tracer/RateLimitedLlm/PromptFuzzer 已有）；
   `mvn -q clean verify` 会连带单测一起跑，是提交前的收尾底线。
 - 配置统一走 `harness.config.AgentConfig`（`load()` 读环境 / `from(Map)`
-  注入）：`KIMI_API_KEY` / `KIMI_CHAT_BASE` / `KIMI_MODEL` / `AGENT_RUNS_DIR` /
-  `AGENT_RULES_DIR`。新增环境变量不许再散落直读。
+  注入）：`LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL` / `AGENT_RUNS_DIR` /
+  `AGENT_RULES_DIR`（旧名 `KIMI_*` 仍兼容回退，新部署用 `LLM_*`）。
+  新增环境变量不许再散落直读。
 - 剧本模式必须离线可跑（ScriptedLlm 预置回复）；真实模式 gated 在
-  `KIMI_API_KEY` 上（AgentConfig.requireApiKey()），缺 key 明确报错退出，
+  `LLM_API_KEY` 上（AgentConfig.requireApiKey()），缺 key 明确报错退出，
   不许悄悄退回剧本。
 
 ## 改完代码的收尾仪式
@@ -61,7 +62,7 @@ LANGGRAPH4J.md 是理解全貌的两张地图，动代码前先读对应章节�
 ## 已知深坑
 
 - Java 源码里连注释都过不了 `\uXXXX` 预扫描，注释中别写这个转义；
-- KimiLlm 的响应提取对转义敏感，改它要回归所有真实 demo；
+- JdkHttpLlm 的响应提取对转义敏感，改它要回归所有真实 demo；
 - 真实模型调用慢，单次命令有超时：真实模式 demo 一律做场景分片
   （参考 workflow 的 `real [1-7]`）。
 - 多 Agent 交接会绕圈（A→B→A 互踢皮球）：路由必须跳过当前持有者——

@@ -4,7 +4,7 @@ import com.example.harness.Budget;
 import com.example.harness.RunRecord;
 import com.example.harness.RunStore;
 import com.example.langgraph4j.llm.CountingLlm;
-import com.example.langgraph4j.llm.KimiLlm;
+import com.example.langgraph4j.llm.JdkHttpLlm;
 import com.example.langgraph4j.llm.ScriptedLlm;
 
 import java.io.IOException;
@@ -20,7 +20,7 @@ import java.util.function.Consumer;
  * <p>与 {@code com.example.langgraph4j} 静态多智能体图的区别：那里的编排是编译期
  * 画死的节点和边；这里每个场景只给一个 {@link Workflow} 引擎，子智能体由模型
  * 按任务现生成。剧本模式用每个场景独立的 ScriptedLlm 队列模拟"模型决定起谁、
- * 起几个"（场景间剧本不混）。真实模式把剧本换成 KimiLlm，验证六种模式的
+ * 起几个"（场景间剧本不混）。真实模式把剧本换成 JdkHttpLlm，验证六种模式的
  * 提示词协议在真实输出下是否成立。</p>
  *
  * <p>覆盖文章的六种模式：分类并执行、扇出并综合、对抗式验证、生成并筛选、
@@ -57,13 +57,13 @@ public class DynamicWorkflowDemo {
         System.out.println(line);
         System.out.println("动态工作流：模型运行时现写 harness（Claude Code 六模式）");
         System.out.println("编排不预先画死，子智能体按任务现生成、上下文彼此隔离");
-        System.out.println("模式：" + (real ? "真实模型（KimiLlm）" : "剧本（ScriptedLlm）")
+        System.out.println("模式：" + (real ? "真实模型（JdkHttpLlm）" : "剧本（ScriptedLlm）")
                 + (pick > 0 ? "，只跑场景 " + pick : ""));
         System.out.println(line);
 
         if (real) {
-            if (System.getenv("KIMI_API_KEY") == null) {
-                System.err.println("缺少 KIMI_API_KEY 环境变量");
+            if (System.getenv("LLM_API_KEY") == null) {
+                System.err.println("缺少 LLM_API_KEY 环境变量");
                 System.exit(1);
             }
             runReal(pick);
@@ -199,7 +199,7 @@ public class DynamicWorkflowDemo {
     /** 真实模式预算护栏：锦标赛四候选各占 1 次调用，裁判预算只给 4 次——半决赛起不来，转人工。 */
     private static void scenarioRealBudgetGuard() {
         header("模式五 + 预算护栏（真实模型）", "四候选各占 1 次调用，预算只够生成、不够评判");
-        CountingLlm meter = new CountingLlm(new KimiLlm());
+        CountingLlm meter = new CountingLlm(new JdkHttpLlm());
         Budget budget = Budget.calls(meter::calls, 4);
         Metered m = new Metered(new Workflow(meter, budget), meter);
         archiveRun("wf-real-budget", "锦标赛（LLM 调用预算 4 次）", m,
@@ -364,7 +364,7 @@ public class DynamicWorkflowDemo {
 
     /** 真实模型的 Workflow。 */
     private static Metered realMeter() {
-        CountingLlm meter = new CountingLlm(new KimiLlm());
+        CountingLlm meter = new CountingLlm(new JdkHttpLlm());
         return new Metered(new Workflow(meter), meter);
     }
 

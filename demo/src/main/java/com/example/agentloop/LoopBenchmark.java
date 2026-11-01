@@ -2,7 +2,7 @@ package com.example.agentloop;
 
 import com.example.langgraph4j.eval.TrajectoryCollector;
 import com.example.langgraph4j.llm.CountingLlm;
-import com.example.langgraph4j.llm.KimiLlm;
+import com.example.langgraph4j.llm.JdkHttpLlm;
 import com.example.langgraph4j.llm.ScriptedLlm;
 import com.example.langgraph4j.patterns.ReflectionGraph;
 import org.bsc.langgraph4j.CompileConfig;
@@ -86,8 +86,8 @@ public class LoopBenchmark {
 
     /** 真实模型分片模式：跑一版的一个/几个 trial，每行一个结果，供跨进程汇总。 */
     private static void runReal(String version, int k, int startIndex) throws Exception {
-        if (System.getenv("KIMI_API_KEY") == null) {
-            System.err.println("缺少 KIMI_API_KEY 环境变量");
+        if (System.getenv("LLM_API_KEY") == null) {
+            System.err.println("缺少 LLM_API_KEY 环境变量");
             System.exit(1);
         }
         System.out.println("真实模型对比 · " + version + " 版 · trial " + startIndex
@@ -95,7 +95,7 @@ public class LoopBenchmark {
         for (int i = 0; i < k; i++) {
             int trial = startIndex + i;
             if (version.equals("graph")) {
-                CountingLlm llm = new CountingLlm(new KimiLlm());
+                CountingLlm llm = new CountingLlm(new JdkHttpLlm());
                 // 真实模式配 judge 终裁：reflector 是开放式评审，k2 极少吐字面 ACCEPT，
                 // 不配 judge 会反复顶满轮数（验收协议问题，见 LANGGRAPH4J.md 对比结论）
                 var graph = new ReflectionGraph(llm, 3, llm).build().compile(
@@ -111,8 +111,8 @@ public class LoopBenchmark {
                 System.out.printf("[graph trial %d] 轮数=%d LLM调用=%d 耗时=%ds 终裁=%s%n",
                         trial, rounds, llm.calls(), ms / 1000, verdict);
             } else {
-                CountingLlm actorLlm = new CountingLlm(new KimiLlm());
-                CountingLlm verifierLlm = new CountingLlm(new KimiLlm());
+                CountingLlm actorLlm = new CountingLlm(new JdkHttpLlm());
+                CountingLlm verifierLlm = new CountingLlm(new JdkHttpLlm());
                 var loop = new AgentLoop(new LlmActor(actorLlm),
                         new LlmVerifier(verifierLlm, GOAL), 3);
                 long t0 = System.nanoTime();

@@ -2,7 +2,7 @@ package com.example.harness.probe;
 
 import com.example.harness.config.AgentConfig;
 import com.example.langgraph4j.llm.CountingLlm;
-import com.example.langgraph4j.llm.KimiLlm;
+import com.example.langgraph4j.llm.JdkHttpLlm;
 import com.example.langgraph4j.llm.LlmClient;
 import com.example.langgraph4j.llm.RetryingLlm;
 import com.example.langgraph4j.llm.ScriptedLlm;
@@ -21,7 +21,7 @@ import java.util.Set;
  *       下游实验照跑；</li>
  *   <li><b>剧本·探针拦截</b>：ScriptedLlm 自然语言闲聊，require 抛闸门异常，
  *       下游调用数必须为 0（省下的就是真实额度）；</li>
- *   <li><b>真实双探</b>（gated 在 KIMI_API_KEY）：同一个真实模型，裸 prompt
+ *   <li><b>真实双探</b>（gated 在 LLM_API_KEY）：同一个真实模型，裸 prompt
  *       （无协议说明）先探——预期挂；补上协议说明再探——预期过。结果作
  *       发现报告，不硬断言（那是观察对象，不是门槛）。</li>
  * </ol>
@@ -53,8 +53,8 @@ public class ProtocolProbeDemo {
 
         System.out.println("\n── 断言 ──");
         // 剧本两幕已自带 check；这里汇总真实部分的结构状态
-        check("真实双探有 KIMI_API_KEY 时跑过、没有时明确跳过",
-                realRan || System.getenv("KIMI_API_KEY") == null);
+        check("真实双探有 LLM_API_KEY 时跑过、没有时明确跳过",
+                realRan || System.getenv("LLM_API_KEY") == null);
 
         String line = "=".repeat(66);
         System.out.println();
@@ -109,23 +109,23 @@ public class ProtocolProbeDemo {
     // ---- 幕 3：真实双探（gated） ---------------------------------------------------
 
     private static boolean actRealProbes() {
-        System.out.println("\n── 幕 3（真实，需 KIMI_API_KEY）：同一模型，裸 prompt vs 带协议 ──");
-        if (System.getenv("KIMI_API_KEY") == null) {
-            System.out.println("    缺 KIMI_API_KEY，真实双探跳过（剧本两幕已验证闸门逻辑）");
+        System.out.println("\n── 幕 3（真实，需 LLM_API_KEY）：同一模型，裸 prompt vs 带协议 ──");
+        if (System.getenv("LLM_API_KEY") == null) {
+            System.out.println("    缺 LLM_API_KEY，真实双探跳过（剧本两幕已验证闸门逻辑）");
             return false;
         }
         String model = AgentConfig.load().model();
         System.out.println("    模型：" + model);
 
         // 3a：裸 prompt——没有任何协议说明，预期探针挂
-        LlmClient bare = new RetryingLlm(new KimiLlm());
+        LlmClient bare = new RetryingLlm(new JdkHttpLlm());
         ProtocolProbe.Result bareResult = ProtocolProbe.check(bare,
                 "你是客服 Agent，请回答用户的问题。", DECLARED);
         System.out.println("    [裸 prompt] " + (bareResult.ok() ? "过" : "挂") + "——" + bareResult.reason());
         System.out.println("    模型原话：" + abbreviate(bareResult.rawOutput()));
 
         // 3b：带协议说明，预期探针过
-        LlmClient withProtocol = new RetryingLlm(new KimiLlm());
+        LlmClient withProtocol = new RetryingLlm(new JdkHttpLlm());
         ProtocolProbe.Result protocolResult = ProtocolProbe.check(withProtocol, PROTOCOL, DECLARED);
         System.out.println("    [带协议] " + (protocolResult.ok() ? "过" : "挂") + "——" + protocolResult.reason());
         System.out.println("    模型原话：" + abbreviate(protocolResult.rawOutput()));

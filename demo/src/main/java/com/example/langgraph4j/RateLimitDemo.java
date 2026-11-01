@@ -27,9 +27,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  *       必须 ≥400ms；不限间隔的对照组明显更快。</li>
  * </ol>
  *
- * <p>真实接线：{@code RetryingLlm(RateLimitedLlm(new KimiLlm(), 4, 200))}
+ * <p>真实接线：{@code RetryingLlm(RateLimitedLlm(new JdkHttpLlm(), 4, 200))}
  * ——限流在内重试在外，重试风暴也冲不破并发闸。HTTP 连接池侧
- * {@link com.example.langgraph4j.llm.KimiLlm} 已改为全 JVM 共享一个
+ * {@link com.example.langgraph4j.llm.JdkHttpLlm} 已改为全 JVM 共享一个
  * {@code HttpClient}（连接复用），不再每实例一池。</p>
  *
  * <p>运行：{@code scripts/dev.sh ratelimit}。</p>

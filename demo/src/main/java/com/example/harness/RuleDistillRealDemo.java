@@ -1,7 +1,7 @@
 package com.example.harness;
 
 import com.example.langgraph4j.llm.CountingLlm;
-import com.example.langgraph4j.llm.KimiLlm;
+import com.example.langgraph4j.llm.JdkHttpLlm;
 import com.example.langgraph4j.llm.LlmClient;
 import com.example.multiagent.DelegationGuard;
 import com.example.multiagent.RunJournal;
@@ -19,12 +19,12 @@ import java.util.stream.Collectors;
  * 剧本版的真实对照组，2026-11-01）。
  *
  * <p>剧本版造历史证明「蒸馏机制对」；这个 demo 证明「真实运行撞的护栏，
- * 档案里一样蒸得出规则」——用紧护栏（max-handoffs=1）让真实 Kimi 客服
+ * 档案里一样蒸得出规则」——用紧护栏（max-handoffs=1）让真实 真实模型客服
  * 接力真实触发 max-handoffs 拦截 ×2，连同底账里已有的真实运行一起进
  * 蒸馏输入，去重后落 {@code rules/AGENTS.real-draft.md}。硬断言：必须
  * 蒸出至少一条新的护栏模式草稿，否则退出码 1。</p>
  *
- * <p>运行：{@code mvn exec:java@distillreal}，需要 {@code KIMI_API_KEY}。
+ * <p>运行：{@code mvn exec:java@distillreal}，需要 {@code LLM_API_KEY}。
  * 不清空底账——真实档案是攒出来的，只读 {@code real-*} 前缀的记录做蒸馏。</p>
  */
 public class RuleDistillRealDemo {
@@ -32,8 +32,8 @@ public class RuleDistillRealDemo {
     private static final RunStore STORE = new RunStore(Path.of("runs", "runs.jsonl"));
 
     public static void main(String[] args) throws Exception {
-        if (System.getenv("KIMI_API_KEY") == null) {
-            System.err.println("缺少 KIMI_API_KEY 环境变量，无法调用真实模型");
+        if (System.getenv("LLM_API_KEY") == null) {
+            System.err.println("缺少 LLM_API_KEY 环境变量，无法调用真实模型");
             System.exit(1);
         }
         System.out.println("\n" + "=".repeat(66));
@@ -45,7 +45,7 @@ public class RuleDistillRealDemo {
         System.out.println("  底账已有真实运行 " + existing.size() + " 条："
                 + terminalProfile(existing));
 
-        // ── 真实触发：紧护栏（max-handoffs=1）下 Kimi 接力必然顶到交接上限 ──
+        // ── 真实触发：紧护栏（max-handoffs=1）下 真实模型接力必然顶到交接上限 ──
         for (int i = 1; i <= 2; i++) {
             runTightRelay("real-distill-handoff-" + i);
         }
@@ -88,22 +88,22 @@ public class RuleDistillRealDemo {
     /** 紧护栏接力：maxHandoffs=1，第一跳之后任何再交接都被 max-handoffs 拦。
      *  public static 供 {@code OuterLoopDemo}（一键外循环）的 real 模式复用。 */
     public static void runTightRelay(String runId) throws Exception {
-        CountingLlm kimi = new CountingLlm(new KimiLlm());
+        CountingLlm real = new CountingLlm(new JdkHttpLlm());
         List<SwarmPattern.Specialist> roster = List.of(
                 new SwarmPattern.Specialist("接入专员", "接待与分流",
-                        roleBrain(kimi, "接入客服",
+                        roleBrain(real, "接入客服",
                                 "你查不了物流单号；用户的诉求属于物流/快递问题，"
                                         + "回复里带上「物流」并说明转物流同事。")),
                 new SwarmPattern.Specialist("物流专员", "查件与理赔",
-                        roleBrain(kimi, "物流专员",
+                        roleBrain(real, "物流专员",
                                 "核实后如果件丢了该走退款，回复里带上「退款」"
                                         + "并说明转退款同事。")),
                 new SwarmPattern.Specialist("退款专员", "退款流程",
-                        roleBrain(kimi, "退款专员",
+                        roleBrain(real, "退款专员",
                                 "如果需要财务打款，回复里带上「财务」"
                                         + "并说明转财务同事。")),
                 new SwarmPattern.Specialist("财务专员", "打款到账，收口",
-                        roleBrain(kimi, "财务专员（最后一棒，收口）",
+                        roleBrain(real, "财务专员（最后一棒，收口）",
                                 "打款已完成，直接告知用户钱已原路退回、留意查收即可——"
                                         + "不要提转交，回复里也不要出现「退款」「物流」"
                                         + "「快递」「包裹」这些词。")));
@@ -117,10 +117,10 @@ public class RuleDistillRealDemo {
         String out = SwarmPattern.run("我的包裹三天没动了", roster, router, guard, journal.trace());
         long ms = (System.nanoTime() - t0) / 1_000_000;
         RunRecord record = journal.toRecord(runId, "multiagent:swarm",
-                "我的包裹三天没动了（紧护栏真实接力）", out, kimi.calls(), ms);
+                "我的包裹三天没动了（紧护栏真实接力）", out, real.calls(), ms);
         STORE.append(record);
         System.out.println("  [真实] " + runId + " → 终态 " + record.terminal()
-                + "，交接 " + guard.handoffs() + " 跳，LLM " + kimi.calls() + " 次"
+                + "，交接 " + guard.handoffs() + " 跳，LLM " + real.calls() + " 次"
                 + (out.contains("max-handoffs") ? "（max-handoffs 拦下）" : ""));
     }
 
@@ -142,8 +142,8 @@ public class RuleDistillRealDemo {
                 .collect(Collectors.joining(", "));
     }
 
-    private static LlmClient roleBrain(LlmClient kimi, String role, String hint) {
-        return prompt -> kimi.complete("你是客服团队里的" + role + "。" + hint
+    private static LlmClient roleBrain(LlmClient real, String role, String hint) {
+        return prompt -> real.complete("你是客服团队里的" + role + "。" + hint
                 + "\n用户/上一棒说：" + prompt + "\n直接给出你的回复正文，不要解释。");
     }
 

@@ -14,7 +14,7 @@
     <packaging>jar</packaging>
 
     <name>agent-demo</name>
-    <description>集成验证层：52 个 demo（剧本离线可跑 + 真实模型 gated 在 KIMI_API_KEY），
+    <description>集成验证层：52 个 demo（剧本离线可跑 + 真实模型 gated 在 LLM_API_KEY），
         是 agent-core 的可执行规约与回归套件。入口照旧 mvn -q exec:java@id（在仓库根跑，cwd 不变）。</description>
 
     <dependencies>

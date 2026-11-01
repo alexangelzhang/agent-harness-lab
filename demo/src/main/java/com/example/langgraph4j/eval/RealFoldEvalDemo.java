@@ -3,7 +3,7 @@ package com.example.langgraph4j.eval;
 import com.example.harness.config.AgentConfig;
 import com.example.harness.probe.ProtocolProbe;
 import com.example.langgraph4j.llm.CountingLlm;
-import com.example.langgraph4j.llm.KimiLlm;
+import com.example.langgraph4j.llm.JdkHttpLlm;
 import com.example.langgraph4j.llm.LlmClient;
 import com.example.langgraph4j.llm.RetryingLlm;
 
@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
 /**
  * 折叠对照评估 · 真实 LLM 版：剧本版 FoldEvalDemo 的同一道订单题
  * （「我的订单 1001 买的什么，什么时候到？」——需要订单 + 配送两个事实），
- * 换 KimiLlm 真实跑折叠版 loop，看<b>真实模型是不是也踩原文那个坑</b>：
+ * 换 JdkHttpLlm 真实跑折叠版 loop，看<b>真实模型是不是也踩原文那个坑</b>：
  * 查到订单就自己答、漏调 query_shipping、丢了送达日期。
  *
  * <p>两阶段对照（原文的两种处置）：</p>
@@ -34,7 +34,7 @@ import java.util.regex.Pattern;
  * 轮数内收口、工具表执行正确、调用数有账可查。</p>
  *
  * <p>运行：{@code mvn exec:java@realfoldeval [每阶段遍数，默认 3]}，
- * 需 KIMI_API_KEY。</p>
+ * 需 LLM_API_KEY。</p>
  */
 public class RealFoldEvalDemo {
 
@@ -79,8 +79,8 @@ public class RealFoldEvalDemo {
     }
 
     public static void main(String[] args) {
-        if (System.getenv("KIMI_API_KEY") == null) {
-            System.err.println("缺少 KIMI_API_KEY 环境变量，无法调用真实模型");
+        if (System.getenv("LLM_API_KEY") == null) {
+            System.err.println("缺少 LLM_API_KEY 环境变量，无法调用真实模型");
             System.exit(1);
         }
         int runs = args.length > 0 ? Integer.parseInt(args[0]) : 3;
@@ -91,7 +91,7 @@ public class RealFoldEvalDemo {
 
         // 协议自检探针：实验前先确认模型在「原版 Skill」prompt 下会吐 Action，
         // 装置没搭对就 fail fast，不烧后面 2×runs 遍的真实额度
-        ProtocolProbe.Result preflight = ProtocolProbe.require(new RetryingLlm(new KimiLlm()),
+        ProtocolProbe.Result preflight = ProtocolProbe.require(new RetryingLlm(new JdkHttpLlm()),
                 ORDER_SKILL_PLAIN, TOOLS.keySet());
         System.out.println("\n── 协议自检探针预检：过——" + preflight.reason());
 
@@ -129,7 +129,7 @@ public class RealFoldEvalDemo {
 
     /** 单遍：Skill 文本进上下文，模型每轮吐 Action，工具结果回灌，4 轮封顶。 */
     private static RunOutcome runOnce(int run, String skill) {
-        CountingLlm brain = new CountingLlm(new RetryingLlm(new KimiLlm()));
+        CountingLlm brain = new CountingLlm(new RetryingLlm(new JdkHttpLlm()));
         StringBuilder context = new StringBuilder(skill);
         boolean shippingCalled = false;
         boolean converged = false;

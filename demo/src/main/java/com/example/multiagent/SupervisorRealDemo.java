@@ -5,7 +5,7 @@ import com.example.harness.RunStore;
 import com.example.harness.probe.ProtocolProbe;
 import com.example.harness.toolbase.SchemaTool;
 import com.example.langgraph4j.llm.CountingLlm;
-import com.example.langgraph4j.llm.KimiLlm;
+import com.example.langgraph4j.llm.JdkHttpLlm;
 import com.example.langgraph4j.llm.LlmClient;
 import com.example.langgraph4j.llm.ScriptedLlm;
 import com.example.multiagent.SupervisorPattern.Expert;
@@ -30,16 +30,16 @@ import java.util.stream.Collectors;
  *
  * <p>三个场景（真实调用慢，{@code -Dexec.args="n"} 只跑第 n 个）：</p>
  * <ol>
- *   <li><b>真实主管 · 平级分派</b>：Kimi 主管输出「分派：」行，
+ *   <li><b>真实主管 · 平级分派</b>：真实模型主管输出「分派：」行，
  *       剧本专家接活，trace 逐条校花名册一致性；</li>
  *   <li><b>真实主管 · Supervisor-as-Tools</b>：专家包成 SchemaTool，
- *       Kimi 主管输出「CALL 工具：问题」行，校工具协议一致性；</li>
- *   <li><b>全真实矩阵</b>：Kimi 主管 + 三位 Kimi 专家 + Kimi 综合，
+ *       真实模型主管输出「CALL 工具：问题」行，校工具协议一致性；</li>
+ *   <li><b>全真实矩阵</b>：真实模型主管 + 三位 真实模型专家 + 真实模型综合，
  *       一屏看全真实分派的调用账。</li>
  * </ol>
  *
  * <p>运行：{@code mvn exec:java@supervisorreal -Dexec.args="[1-3]"}，
- * 需要 {@code KIMI_API_KEY}，缺了明确报错退出。</p>
+ * 需要 {@code LLM_API_KEY}，缺了明确报错退出。</p>
  */
 public class SupervisorRealDemo {
 
@@ -51,15 +51,15 @@ public class SupervisorRealDemo {
     private static int bad;
 
     public static void main(String[] args) {
-        if (System.getenv("KIMI_API_KEY") == null) {
-            System.err.println("缺少 KIMI_API_KEY 环境变量，无法调用真实模型");
+        if (System.getenv("LLM_API_KEY") == null) {
+            System.err.println("缺少 LLM_API_KEY 环境变量，无法调用真实模型");
             System.exit(1);
         }
         int pick = args.length > 0 ? Integer.parseInt(args[0]) : 0;
         String line = "=".repeat(66);
         System.out.println(line);
         System.out.println("Supervisor 真实对照组：平级分派 / 专家工具化 / 全真实矩阵");
-        System.out.println("模式：真实模型（KimiLlm）" + (pick > 0 ? "，只跑场景 " + pick : ""));
+        System.out.println("模式：真实模型（JdkHttpLlm）" + (pick > 0 ? "，只跑场景 " + pick : ""));
         System.out.println(line);
 
         if (pick == 0 || pick == 1) {
@@ -86,8 +86,8 @@ public class SupervisorRealDemo {
 
     /** 场景一：真实主管走「分派：」协议，剧本专家接活。 */
     private static void scenarioDispatch() {
-        header("场景一：真实主管 · 平级分派", "Kimi 出分派行，trace 逐条校花名册一致性");
-        CountingLlm boss = new CountingLlm(new KimiLlm());
+        header("场景一：真实主管 · 平级分派", "真实模型出分派行，trace 逐条校花名册一致性");
+        CountingLlm boss = new CountingLlm(new JdkHttpLlm());
         List<Expert> roster = List.of(
                 new Expert("技术专家", "技术债与依赖评估",
                         new ScriptedLlm().says("依赖三方库 12 个，2 个已停止维护")),
@@ -118,8 +118,8 @@ public class SupervisorRealDemo {
 
     /** 场景二：真实主管走「CALL 工具：」协议，专家是 SchemaTool。 */
     private static void scenarioTools() {
-        header("场景二：真实主管 · Supervisor-as-Tools", "专家包成工具，Kimi 出 CALL 行");
-        CountingLlm boss = new CountingLlm(new KimiLlm());
+        header("场景二：真实主管 · Supervisor-as-Tools", "专家包成工具，真实模型出 CALL 行");
+        CountingLlm boss = new CountingLlm(new JdkHttpLlm());
         List<Expert> roster = List.of(
                 new Expert("技术专家", "技术债与依赖评估",
                         new ScriptedLlm().says("依赖三方库 12 个，2 个已停止维护")),
@@ -150,12 +150,12 @@ public class SupervisorRealDemo {
                 boss.calls() + (int) called + 1, ms);
     }
 
-    /** 场景三：全真实矩阵——Kimi 主管 + 三位 Kimi 专家 + Kimi 综合。 */
+    /** 场景三：全真实矩阵——真实模型主管 + 三位 真实模型专家 + 真实模型综合。 */
     private static void scenarioFullReal() {
-        header("场景三：全真实矩阵", "主管、专家、综合全是 Kimi，看调用账");
-        CountingLlm boss = new CountingLlm(new KimiLlm());
-        CountingLlm experts = new CountingLlm(new KimiLlm());
-        CountingLlm synth = new CountingLlm(new KimiLlm());
+        header("场景三：全真实矩阵", "主管、专家、综合全是真实模型，看调用账");
+        CountingLlm boss = new CountingLlm(new JdkHttpLlm());
+        CountingLlm experts = new CountingLlm(new JdkHttpLlm());
+        CountingLlm synth = new CountingLlm(new JdkHttpLlm());
         List<Expert> roster = List.of(
                 new Expert("技术专家", "技术债与依赖评估",
                         expertBrain(experts, "技术专家", "技术债与依赖评估")),
@@ -185,8 +185,8 @@ public class SupervisorRealDemo {
 
     // ---- 小工具 --------------------------------------------------------------
 
-    private static LlmClient expertBrain(LlmClient kimi, String name, String specialty) {
-        return prompt -> kimi.complete("你是" + name + "（" + specialty + "）。"
+    private static LlmClient expertBrain(LlmClient real, String name, String specialty) {
+        return prompt -> real.complete("你是" + name + "（" + specialty + "）。"
                 + "主管分派给你的问题：" + prompt + "\n直接给结论，两三句，不要客套。");
     }
 

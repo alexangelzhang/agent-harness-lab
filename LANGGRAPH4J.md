@@ -15,7 +15,7 @@
 |------|------|---------|
 | 10-12 | 起点 | 《Agent 的九种设计模式》→ `com.example.agent` 纯 JDK 手写版（九大模式） |
 | 10-20 | 图版合并 | 《LangGraph 核心概念》→ `com.example.langgraph4j` 状态图版并入同项目，手写/图版逐行对照 |
-| 10-21 | 真实模型 | `KimiLlm` 接入 agent 网关，九大图版逐一真实验证；HITL 审批中断 + 客户端层 `$web_search` |
+| 10-21 | 真实模型 | `JdkHttpLlm` 接入 agent 网关，九大图版逐一真实验证；HITL 审批中断 + 客户端层 `$web_search` |
 | 10-22 | 评估 | `eval` 包轨迹级评估（Pass@k / 步数统计）+ 对抗探针；judge 双职责（终审 + 捞回） |
 | 10-26 | 治理层 | `com.example.harness`：Budget 预算、RunRecord 档案、ToolGate 网关、ApprovalPolicy 审批、RuleDistiller 规则蒸馏 |
 | 10-29 | 原语 loop | `com.example.agentloop` 不依赖状态图的 Agent loop 原语（Actor/Verifier/StopCondition + 失败分流 + 预算终态）；loopbench 同剧本对比图版 vs 原语版 |
@@ -33,13 +33,13 @@
 | 10-31 | 多 Agent 四模式 | 智能体AI《多 Agent 不是单 Agent 的升级版》：新包 `multiagent`——`WorkflowPattern`（控制流写死）、`SupervisorPattern`（平级分派 + Supervisor-as-Tools 双结构）、`HierarchicalPattern`（层层下派）、`SwarmPattern`（去中心化接力）、`DelegationGuard` 委派护栏（max-depth/handoffs/循环检测）、`TopologyAdvisor` 选型决策树（读源/写密集信号，默认不拆）——见 docs/multi_agent_topology_review.md |
 | 11-01 | 生产化缺口 #1 单测落地 | core 接入 JUnit 5（parent pom 挂 surefire，`mvn test/verify` 自动跑）：第一批 32 个用例覆盖六个纯逻辑无 LLM 依赖的类——`RunStoreTest`（追加/读回/轮转/归档保留/坏行容忍/清空 6 例）、`MetricsRegistryTest`（三类的累加快照导出复位 6 例）、`TelemetryLlmTest`（complete/stream 两路计数、失败、在飞配对 5 例）、`TracerTest`（span 父子链/traceId 过滤/JSONL 追加导出/双关幂等 5 例）、`RateLimitedLlmTest`（并发峰值恰为上限、间隔闸、异常时信号量不泄漏 4 例）、`PromptFuzzerTest`（变异确定性、crash 复现样本、策略覆盖 6 例）；测试自身也过 `-Werror -Xlint:all`。至此生产化缺口清单 #1~#7 全部清零；`mvn -q clean verify` = 编译 + 单测的提交前底线 |
 | 11-01 | 生产化缺口 #5+#7 落地 | 可观测性 `harness.telemetry`：`MetricsRegistry`（counter/timer/gauge，Prometheus 文本导出接 textfile collector）+ `TelemetryLlm`（LlmClient 装饰器，调用/失败/耗时/字符量自动攒，label 分维）+ `Tracer`（span 树 JSONL 跨进程锁导出，traceId 下钻）；安全面 `harness.redteam`：`PromptFuzzer`（8 类变异 fuzz 护栏与解析器，crash 留复现样本）+ `RedTeamBattery`（12 条标准攻击库，确定性/LLM 双判定模式，guarded 脱敏管线一键组）——新 demo `@telemetry`（12 断言）/ `@redteam`（fuzz 89 变异零 crash，红队裸目标 67% vs 脱敏 33%，盲区如实报告）；至此缺口清单只剩 #1 单测 |
-| 11-01 | 限流接入真实并发 | #6 落地接线两处：`EvalHarness.evaluateParallel`（k 次 trial 并行开跑，独立编译图/独立 threadId，并行只省墙钟不改 Pass@k，线程异常兜成 ERROR 轨迹）——`@realeval` 已接 `RetryingLlm(RateLimitedLlm(kimi, 4, 200))` 并发闸，k=3 真实回归 Pass@3=3/3、墙钟 66s vs 串行相加 140s；`@parallel` 加第四幕 `real` 参数——真实主管经 `ProtocolProbe` 预检后 `dispatchParallel` 并发分派，3 条全命中花名册 |
+| 11-01 | 限流接入真实并发 | #6 落地接线两处：`EvalHarness.evaluateParallel`（k 次 trial 并行开跑，独立编译图/独立 threadId，并行只省墙钟不改 Pass@k，线程异常兜成 ERROR 轨迹）——`@realeval` 已接 `RetryingLlm(RateLimitedLlm(real, 4, 200))` 并发闸，k=3 真实回归 Pass@3=3/3、墙钟 66s vs 串行相加 140s；`@parallel` 加第四幕 `real` 参数——真实主管经 `ProtocolProbe` 预检后 `dispatchParallel` 并发分派，3 条全命中花名册 |
 | 11-01 | 审计与外循环闭环 | 多 Agent 运行经 `RunJournal` 落 runs.jsonl 同一底账（GUARD_BLOCKED 显式终态），`@archive` 跨四载体汇总；外循环升级：`RuleDistiller` 护栏模式（cycle/max-depth/max-handoffs 聚类，与 AGENTS.md 去重）+ 采纳检验（合并专员后重跑不再被拦）+ 真实版 `@distillreal`（真实撞护栏蒸出规则）；Swarm 路由带当前持有者参数（跳过交回自己），真实对照组逼出写密集前置劝退与模型路由 modelRouter；蒸馏出的护栏教训（交接绕圈/层级深度/交接次数上限/写密集不拆）已合并进 AGENTS.md 已知深坑，去重双向验证过（剧本版标【已收录】、真实版断言与去重共存） |
-| 11-01 | 多 Agent 生产深化三件套 | 并行 fan-out（`SupervisorPattern.dispatchParallel`，并发上限 + 单专家故障隔离成「[调用失败]」）；Swarm 整轮时间盒（`run(..., deadlineMillis)`，到点就地收工、已有产出不丢）；LLM 流式输出（`LlmClient.stream` 逐块回调返 false 即中止，KimiLlm 走 SSE 提前关流省 token，与 complete 独立两条路径；ScriptedLlm 切词演练同路径）——新 demo `@parallel` / `@swarmdeadline` / `@stream` / `@streamreal [1-2]`，并行 run 落账 `multiagent:supervisor-parallel`；真实轨全量回归 17 分片全绿；回归同时逼出 TopologyRealDemo 退款专员话术补禁提词（提「物流」被关键词路由误判交回上一棒，护栏按设计掐循环） |
+| 11-01 | 多 Agent 生产深化三件套 | 并行 fan-out（`SupervisorPattern.dispatchParallel`，并发上限 + 单专家故障隔离成「[调用失败]」）；Swarm 整轮时间盒（`run(..., deadlineMillis)`，到点就地收工、已有产出不丢）；LLM 流式输出（`LlmClient.stream` 逐块回调返 false 即中止，JdkHttpLlm 走 SSE 提前关流省 token，与 complete 独立两条路径；ScriptedLlm 切词演练同路径）——新 demo `@parallel` / `@swarmdeadline` / `@stream` / `@streamreal [1-2]`，并行 run 落账 `multiagent:supervisor-parallel`；真实轨全量回归 17 分片全绿；回归同时逼出 TopologyRealDemo 退款专员话术补禁提词（提「物流」被关键词路由误判交回上一棒，护栏按设计掐循环） |
 | 11-01 | realadvanced 三处脆弱修复 | 真实回归三连击暴露并全部修复：①ReAct 解析器对「只吐 Thought 不吐 Action」按直接终答兜底（ArticleDemo.LlmThinkNode，真实模型漂移不炸循环）；②`RetryingLlm` 按消息特征重试瞬时故障（400/tokenization/timeout 最多 3 次退避，LangChain4jLlm 刻意 maxRetries(0) 的责任上移到 wiring 层）；③HITL 恢复前确认 lastAction 非 Finish（模型首跳直出终答时没有 checkpoint 可恢复，别再发 resume）；④curl 对照实测定位网关新约束——$web_search 回传 tool_calls 的 type 必须写 "function"，照抄响应的 "builtin_function" 报 400 tokenization failed（WebSearchLlm 修复，三坑均已入 AGENTS.md 深坑）。修复后 `@realadvanced` 三段全通（HITL 中断→审批→恢复、混合调度双路径、客户端层 $web_search 真实出答案） |
 | 11-01 | 报表与一键外循环 | 清单 7/8/9/10 落地：`RunReportDemo`（`@report`）把底账读出来见人——终态分布条、按 runner 成本、护栏专项（按规则类型聚类拦在哪）、失败模式 TOP、按天趋势，GOOD_TERMINALS 表与蒸馏器共享；`OuterLoopDemo`（`@outerloop`，`real` 参数先造真实档案）一键跑「真账蒸馏→去重→落草稿→采纳检验」；顺手修蒸馏器真 bug——终态过滤漏 DONE，workflow 正常收口被蒸成废草稿；eval/realeval 提进 README 主清单；对标研读三步流程（存档→落地→验证登记）固化进 AGENTS.md |
-| 11-01 | 生产化缺口 #6 并发与资源 | `RateLimitedLlm`（llm 包）：限流与背压两闸——并发上限（信号量，超出原地排队=背压）+ 最小调用间隔（防突发打满网关配额）；与 RetryingLlm 正交，推荐 `RetryingLlm(RateLimitedLlm(kimi))` 限流在内重试在外，重试风暴冲不破并发闸；HTTP 侧 KimiLlm 改全 JVM 共享 HttpClient（连接复用，WebSearchLlm 早就是共享）；新 demo `@ratelimit`（剧本离线）：6 线程打上限 2（峰值恰 2、排队不丢）+ 100ms 间隔（5 次 412ms vs 对照 0ms）4 断言全绿 |
-| 11-01 | 生产化三缺口（2~4） | 库形态：仓库分模块——`core/`=库 `agent-core`（121 个类，语义化版本，铁律 core 不依赖 demo，编译即验证），`demo/`=52 个 demo（exec executions 随迁），`scripts/dev.sh <id>` 一条命令（装 parent+core 再 exec），等价 `mvn -q exec:java@<id> -pl demo`；配置管理：`harness.config.AgentConfig` 统一装配（KIMI_API_KEY/CHAT_BASE/MODEL/AGENT_RUNS_DIR/AGENT_RULES_DIR，默认值+requireApiKey 启动校验+from(Map) 注入式），KimiLlm/LangChain4jLlm/WebSearchLlm 与全部 demo 横幅直读已收敛；状态存储：`RunStore` 硬化——跨进程文件锁（FileChannel.lock）、超 8MB 轮转进 archive/、留最近 5 份归档、坏行跳过告警不拖垮读取，临时验证程序 8/8 实测（轮转顺序保持/坏行容忍/保留上限/clear 连归档清），@topology 写账 + @report 读账回归正常 |
+| 11-01 | 生产化缺口 #6 并发与资源 | `RateLimitedLlm`（llm 包）：限流与背压两闸——并发上限（信号量，超出原地排队=背压）+ 最小调用间隔（防突发打满网关配额）；与 RetryingLlm 正交，推荐 `RetryingLlm(RateLimitedLlm(real))` 限流在内重试在外，重试风暴冲不破并发闸；HTTP 侧 JdkHttpLlm 改全 JVM 共享 HttpClient（连接复用，WebSearchLlm 早就是共享）；新 demo `@ratelimit`（剧本离线）：6 线程打上限 2（峰值恰 2、排队不丢）+ 100ms 间隔（5 次 412ms vs 对照 0ms）4 断言全绿 |
+| 11-01 | 生产化三缺口（2~4） | 库形态：仓库分模块——`core/`=库 `agent-core`（121 个类，语义化版本，铁律 core 不依赖 demo，编译即验证），`demo/`=52 个 demo（exec executions 随迁），`scripts/dev.sh <id>` 一条命令（装 parent+core 再 exec），等价 `mvn -q exec:java@<id> -pl demo`；配置管理：`harness.config.AgentConfig` 统一装配（LLM_API_KEY/CHAT_BASE/MODEL/AGENT_RUNS_DIR/AGENT_RULES_DIR，默认值+requireApiKey 启动校验+from(Map) 注入式），JdkHttpLlm/LangChain4jLlm/WebSearchLlm 与全部 demo 横幅直读已收敛；状态存储：`RunStore` 硬化——跨进程文件锁（FileChannel.lock）、超 8MB 轮转进 archive/、留最近 5 份归档、坏行跳过告警不拖垮读取，临时验证程序 8/8 实测（轮转顺序保持/坏行容忍/保留上限/clear 连归档清），@topology 写账 + @report 读账回归正常 |
 | 11-01 | Anthropic 折叠 subagent 研读落地 | `FoldEvalDemo`（`@foldeval`，eval 包）同一组 Golden Examples 跑 Subagent 分派版 vs 折回主 Loop 版（Skill 注入 + 工具表）各 2 遍——复刻原文客服失败案例：订单题折叠版第 1 遍漏调 query_shipping 从过变挂（1/2），简单题无损且平均调用严格更少；`SkillDoctorDemo`（`@skilldoctor`，harness.skills 包）技能库体检——使用频率（僵尸/低频）+ promptSnippet 3-gram Jaccard 重复度 + trigger 撞车三维度出膨胀候选清单；真实对照组 `RealFoldEvalDemo`（`@realfoldeval`）跑出剧本给不了的教训：prompt 没写协议说明时真实模型 6/6 遍全程自然语言、一轮 Action 不吐（教协议前别谈行为），补齐后 6/6 全走对；`ProtocolProbe`（`harness.probe` 包，`@protocolprobe`）协议自检探针把教训固化成真实实验前置预检——一次最小调用确认模型会吐协议行，requireOrExit 硬闸门 fail fast 不烧额度，支持自定义协议行 pattern（multiagent 分派协议经 `rosterProtocol` 接入，探针 prompt 没给专员名单时真实模型真会自造名字，第一版实测命中），已接入 realfoldeval / real / realadvanced×2 / supervisorreal / topologyreal 并逐一真实回归；见 docs/anthropic_fold_subagents.md |
 
 一句话：模式层（九大模式）→ 载体层（手写/状态图/原语/动态工作流，可对比选型）
@@ -56,7 +56,7 @@
 ```bash
 scripts/dev.sh graph        # 运行九个图版演示（八大模式 + Multi-Agent 补充，ScriptedLlm 剧本）
 scripts/dev.sh article      # 运行文章五概念演示（ArticleDemo）
-scripts/dev.sh real         # 接入真实 LLM 跑 ReAct 与 REWOO 两张图（需 KIMI_API_KEY）
+scripts/dev.sh real         # 接入真实 LLM 跑 ReAct 与 REWOO 两张图（需 LLM_API_KEY）
 scripts/dev.sh realpatterns # 真实 LLM 跑另外五个模式图（可用 "reflection,compiler" 挑着跑）
 scripts/dev.sh realadvanced # 真实 LLM 进阶：HITL 审批中断 + 客户端层 $web_search 搜索
 ```
@@ -68,7 +68,7 @@ scripts/dev.sh realadvanced # 真实 LLM 进阶：HITL 审批中断 + 客户端�
 首现（如「运行档案」一节的 `mvn exec:java@archive`），全量 id 以
 demo/pom.xml 的 exec executions 为准。
 
-## 接入真实 LLM（LangChain4jLlm / KimiLlm）
+## 接入真实 LLM（LangChain4jLlm / JdkHttpLlm）
 
 LLM 抽象是接口 `llm/LlmClient.java`（`String complete(String)`），有三个实现：
 
@@ -78,7 +78,7 @@ LLM 抽象是接口 `llm/LlmClient.java`（`String complete(String)`），有三
   `OpenAiChatModel.builder()` 指向任意 OpenAI 兼容端点；temperature 是 `Double`，
   **不设置即不发送**（网关模型只允许 1，带了会被拒绝）；K2 推理时 content 为空
   则回退 `AiMessage.thinking()`。
-- **`KimiLlm`（零依赖参考实现）**：JDK HttpClient + 手写 JSON 提取，取 `content`、
+- **`JdkHttpLlm`（零依赖参考实现）**：JDK HttpClient + 手写 JSON 提取，取 `content`、
   为空回退 `reasoning_content`，不引任何第三方库。
 - **`ScriptedLlm`**：脚本化假模型，离线跑剧本。
 
@@ -86,9 +86,12 @@ LLM 抽象是接口 `llm/LlmClient.java`（`String complete(String)`），有三
 
 | 环境变量 | 默认 | 说明 |
 |---|---|---|
-| `KIMI_API_KEY` | （必填） | API Key |
-| `KIMI_CHAT_BASE` | `https://agent-gw.kimi.com/coding/v1` | OpenAI 兼容端点 |
-| `KIMI_MODEL` | `kimi-k2-0905-preview` | 模型名 |
+| `LLM_API_KEY` | （必填） | API Key |
+| `LLM_BASE_URL` | `https://agent-gw.kimi.com/coding/v1` | OpenAI 兼容端点 |
+| `LLM_MODEL` | `kimi-k2-0905-preview` | 模型名 |
+
+默认值只是作者自用的缺省，换任意 OpenAI 兼容端点改三个变量即可；旧名
+`KIMI_API_KEY` / `KIMI_CHAT_BASE` / `KIMI_MODEL` 仍兼容（新名为空时回退）。
 
 `RealDemo` 用真实模型 + **真实联网搜索**（`tool/WebSearchTool.java`：中文维基百科 opensearch +
 页面摘要，免费免 Key，JDK HttpClient 手写 JSON 解析）跑两张图（实测 exit=0）：
@@ -170,7 +173,7 @@ LLM 抽象是接口 `llm/LlmClient.java`（`String complete(String)`），有三
   实际不符（且两次查询结果不一致），权威数据查询仍应走专用工具（`MavenTool`）。
 
 踩坑：① `$web_search` 是 Moonshot 私有扩展，langchain4j 的 ToolSpecification 只能发
-`type:"function"` 会被网关忽略——`WebSearchLlm` 与 `KimiLlm` 一样手写 HTTP，请求体完全可控；
+`type:"function"` 会被网关忽略——`WebSearchLlm` 与 `JdkHttpLlm` 一样手写 HTTP，请求体完全可控；
 ② 模型的工具使用以 **prompt 声明为准**：提示词里只写 Calculator 时，即使 API 注册了
 `$web_search` 模型也会拒绝调用（「工具口径要一致」）；
 ③ 手工拼 messages JSON 时初始串不能提前闭合数组尾 `]`（否则追加的消息挂在数组外，HTTP 400）。
@@ -331,12 +334,12 @@ Checkpoint。九大模式中的 Reflection / Planning / Multi-Agent 都可以按
   ExecutorService 并行开跑——每 trial 仍独立编译图 + 独立 threadId，并行只
   改墙钟不改 Pass@k 语义；线程内异常兜成 ERROR 轨迹不拖垮报告；k 次共享
   稀缺 LLM 时在外层套 `RateLimitedLlm` 并发闸（realeval 已接
-  `RetryingLlm(RateLimitedLlm(kimi, 4, 200))`）。
+  `RetryingLlm(RateLimitedLlm(real, 4, 200))`）。
 - `EvalDemo`（`mvn exec:java@eval`）：场景 A 用顺利/坎坷两套 ScriptedLlm 剧本
   跑 ReflectionGraph（Pass@5=3/5）；场景 B 把 recursionLimit 压到 5 让五步计划
   必撞护栏（Pass@2=0/2，ERROR 轨迹含护栏命中标记）。
 - `RealEvalDemo`（`mvn exec:java@realeval`，支持 `[k] [startIndex]` 分片参数）：
-  ReflectionGraph × KimiLlm 真实评估，前后跑了三轮，每一轮都有新发现：
+  ReflectionGraph × JdkHttpLlm 真实评估，前后跑了三轮，每一轮都有新发现：
 
   1. **第一轮（原始提示词）Pass@5 = 1/5**。trial 1 首轮通过（2 次调用 / 10s），
      其余 4 次都顶满 maxRounds=3（6 次调用 / 46–123s）。剧本演不出来的真实
@@ -384,7 +387,7 @@ Checkpoint。九大模式中的 Reflection / Planning / Multi-Agent 都可以按
   从过变挂的题要么保留 subagent、要么把约束写进 Skill 并补评估。
 
 - `RealFoldEvalDemo`（`mvn exec:java@realfoldeval [每阶段遍数]`，2026-11-01，
-  需 KIMI_API_KEY）：剧本那道订单题换 kimi-k2 真实跑折叠 loop，两阶段
+  需 LLM_API_KEY）：剧本那道订单题换 kimi-k2 真实跑折叠 loop，两阶段
   对照——原版 Skill vs 加固版（「不调 query_shipping 直接回答视为违规」）。
   真实跑出一个剧本给不了的教训：**prompt 里没写协议说明时，模型 6/6
   遍全是自然语言闲聊、一轮 Action 都不吐**——不是漏调工具，是根本不知道
@@ -524,8 +527,8 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
   检验闭环：照 cycle 草稿把互踢皮球的两位专员合并成一位，重跑同一任务，
   新档案 SUCCESS 不再 GUARD_BLOCKED——采纳 → 生效 → 回同类任务验证，
   蒸馏 → 去重 → 采纳 → 检验，四步走通。真实版
-  `RuleDistillRealDemo`（`mvn exec:java@distillreal`，需 KIMI_API_KEY）：
-  紧护栏（max-handoffs=1）下真实 Kimi 接力真实撞出 GUARD_BLOCKED ×2，
+  `RuleDistillRealDemo`（`mvn exec:java@distillreal`，需 LLM_API_KEY）：
+  紧护栏（max-handoffs=1）下真实模型接力真实撞出 GUARD_BLOCKED ×2，
   连同底账里 real- 前缀的真实运行一起蒸馏——真实撞的护栏同样蒸得出
   规则（交接次数反复到顶），落 rules/AGENTS.real-draft.md，硬断言挂退出码。
 - `RunReportDemo`（`mvn exec:java@report`，2026-11-01）：底账只进不出的
@@ -542,7 +545,7 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
   （带时间戳覆盖式）→ 有新的循环交接类草稿才跑采纳检验（合并专员重跑，
   必须 SUCCESS）→ 打印本轮小结。`-Dexec.args=real` 先复用
   RuleDistillRealDemo.runTightRelay 跑 1 轮紧护栏真实接力造新鲜档案
-  （需 KIMI_API_KEY），适合接在真实回归后定期执行。顺手修了一个蒸
+  （需 LLM_API_KEY），适合接在真实回归后定期执行。顺手修了一个蒸
   馏器真 bug：终态模式过滤漏了 DONE，workflow 的正常收口被当失败蒸成
   「见来源运行逐条排查」的废草稿——GOOD_TERMINALS 表补齐。
 - `FailureDiagnostician`（`harness.diagnostics` 包，2026-10-31，Definitive
@@ -569,7 +572,7 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
   清理周期在岗：每 8 次召回先跑一轮 MemoryJanitor.sweep 再查，
   到期记忆不占检索位，遗忘不靠人想起才跑；清理计数进指标。
   真实闭环 demo（`mvn exec:java@memoryreal -Dexec.args="[1-3]"`，需
-  KIMI_API_KEY）：真实 Kimi 带着召回记忆写评审邀请函；从对话提取事实
+  LLM_API_KEY）：真实模型带着召回记忆写评审邀请函；从对话提取事实
   并自评置信——推测项（实测模型自己给 0.4）被闸门挂成 UNCONFIRMED；
   8 次召回自动 sweep 后，过期记忆不进注入上下文。
 - `Sensor` / `Finding` / `SensorSuite` / `SensorLedger`（`harness.sensor` 包
@@ -590,7 +593,7 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
   计算型感知（含 guides 撞车）→ 推断型抽样（5 轮实跑 2 次）→ 回流闭环
   （TODO 修正指引回流、2 轮收工）→ 转向循环（3 次台账 → 2 条草稿 +
   从未触发清单）四幕。真实闭环 demo（`mvn exec:java@sensorreal
-  -Dexec.args="[1-3]"`，需 KIMI_API_KEY）：真实 Kimi 按任务要求写下 TODO，
+  -Dexec.args="[1-3]"`，需 LLM_API_KEY）：真实模型按任务要求写下 TODO，
   sensor 拦下、修正指引回流、二稿改「待补充」收工（实测 2 轮 4 次调用）；
   推断型真实评审抓到语义重复 + 两处过度设计；真实产出逐轮攒台账，
   触发过谁、谁从没响一屏摆出。
@@ -711,8 +714,8 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
   （dispatchParallel 并行 fan-out、批量评估 k 次 trial）必须先有限流。
   两道闸：<b>并发上限</b>（信号量，超出的调用方原地排队——背压是压回去
   不是压垮）+ <b>最小调用间隔</b>（两次发起的最小间距，防突发打满配额）。
-  与 RetryingLlm 正交，推荐套法 `RetryingLlm(RateLimitedLlm(kimi))`——
-  限流在内重试在外，重试风暴冲不破并发闸。HTTP 侧 KimiLlm 改为全 JVM
+  与 RetryingLlm 正交，推荐套法 `RetryingLlm(RateLimitedLlm(real))`——
+  限流在内重试在外，重试风暴冲不破并发闸。HTTP 侧 JdkHttpLlm 改为全 JVM
   共享一个 HttpClient（连接复用，不再每实例一池；WebSearchLlm 早就是共享）。
   demo（`scripts/dev.sh ratelimit`）两幕剧本：6 线程打上限 2 的并发闸
   （峰值恰好 2、排队不丢请求）+ 100ms 间隔闸（5 次 ≥400ms、对照组 0ms）。
@@ -760,16 +763,16 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
   显式终态；剧本版与两个真实版的多 Agent 运行，和单体 loop / 状态图 /
   动态工作流同一张底账，跨拓扑按 runner 可分终态与成本。
   真实对照组 `TopologyRealDemo`（`mvn exec:java@topologyreal -Dexec.args="[1-6]"`，
-  需 KIMI_API_KEY）：六个场景——真实模型把任务描述翻译成画像信号进决策树
+  需 LLM_API_KEY）：六个场景——真实模型把任务描述翻译成画像信号进决策树
   （写密集前置劝退：共享写出 &gt; 0 且工序不固定，不问其他信号直接建议
-  不拆）、Kimi 当主管分派/当总监下派/当四位客服接力（路由跳过持有者自己，
+  不拆）、真实模型当主管分派/当总监下派/当四位客服接力（路由跳过持有者自己，
   交回自己留给护栏循环检测兜底）、双路由对照（keywordRouter 免费但要
   接棒者说中 cue 词；modelRouter 每次交接一次调用，读语义不用背词，
   对不上花名册一律收工）。
   Supervisor 真实对照组 `SupervisorRealDemo`（`mvn exec:java@supervisorreal
-  -Dexec.args="[1-3]"`，需 KIMI_API_KEY）：真实主管出「分派：」行 /
+  -Dexec.args="[1-3]"`，需 LLM_API_KEY）：真实主管出「分派：」行 /
   「CALL 工具：」行全部命中花名册（trace 逐条校验，协议不靠剧本），
-  外加全真实矩阵——Kimi 主管 + 三位 Kimi 专家 + Kimi 综合的调用账
+  外加全真实矩阵（主管、专家、综合全走真实模型）的调用账
   （1 + 3 + 1 次）。
 - **生产深化三件套**（2026-11-01，把多 Agent 从「机制对」推向「扛得住生产」）：
   - **并行 fan-out** `SupervisorPattern.dispatchParallel`：主管拆完任务各专家
@@ -780,20 +783,20 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
     线程安全的，不在 worker 线程里触它）。demo（`mvn exec:java@parallel`）：
     三幕——串行基线 ≈900ms / 并行 ≈300ms / 故障隔离；并行 run 落账
     runner `multiagent:supervisor-parallel`。另有第四幕 `real` 参数：
-    真实 Kimi 主管经 `ProtocolProbe` 分派协议预检后 `dispatchParallel`
-    并发分派（主管走 `RetryingLlm(RateLimitedLlm(kimi))` 并发闸）。
+    真实模型主管经 `ProtocolProbe` 分派协议预检后 `dispatchParallel`
+    并发分派（主管走 `RetryingLlm(RateLimitedLlm(real))` 并发闸）。
   - **整轮时间盒** `SwarmPattern.run(..., long deadlineMillis)`：接力不再
     没有尽头——死线只掐「还交不交接」，已生成的回复原样保留，首棒
     永远拿得到。demo（`mvn exec:java@swarmdeadline`）：不设盒 3 跳跑完
     vs 盒 500ms 在第 2 棒就地收工，trace 留「到点就地收工」。
   - **LLM 流式输出** `LlmClient.stream(prompt, Predicate<String> onChunk)`：
     逐块回调，返回 false 即中止；默认方法退化为 complete 一次整块
-    （不发流式的实现零代码可用）；`KimiLlm` 走真实 SSE，消费方中止时
+    （不发流式的实现零代码可用）；`JdkHttpLlm` 走真实 SSE，消费方中止时
     直接关响应流、没生成的 token 不计费（与 complete 完全独立的两条
     代码路径，互不动对方的转义处理）；`ScriptedLlm` 按小块切词演练同一
     条代码路径。demo：`mvn exec:java@stream`（完整流式 + 预算 24 字熔断），
     真实版 `StreamRealDemo`（`mvn exec:java@streamreal -Dexec.args="[1-2]"`，
-    需 KIMI_API_KEY）：SSE 逐块真实到达、30 字预算真实提前关流。
+    需 LLM_API_KEY）：SSE 逐块真实到达、30 字预算真实提前关流。
 - Jackson 序列化依赖已显式声明进 pom（原本经 langgraph4j 传递引入）。
 
 ## Agent loop 原语（agentloop 包）
@@ -825,7 +828,7 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
 - `LlmActor` / `LlmVerifier`：LlmClient 版实现——行动方提示词自动带上
   历史轮次和上一轮反馈意见；验收方回 YES 或 NO：原因。
 - `AgentLoopDemo`：剧本场景（验收挑两轮毛病后放行，验证反馈确实进了
-  下一轮提示词）+ 真实模型场景（KimiLlm 一轮达标，16s）。
+  下一轮提示词）+ 真实模型场景（JdkHttpLlm 一轮达标，16s）。
 - `LoopBenchmark`（`mvn exec:java@loopbench`）：同剧本正面对比图版
   （ReflectionGraph）与原语版（AgentLoop）——同一任务同一剧本，两版
   都是 2 轮 / 4 次调用，消耗打平。对比的意义在选型：要 checkpoint /
@@ -857,7 +860,7 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
 
 `RealEvalDemo` 末尾还有两个真实模型探针（`realeval` 跑完 k 次后自动接着跑）：
 真实 judge 对跑题稿必须复核打回（剧本 generator/reflector 喂跑题稿，
-judge 是真实 KimiLlm）；真实全流程跑出的合格稿，reflector 放行时 judge
+judge 是真实 JdkHttpLlm）；真实全流程跑出的合格稿，reflector 放行时 judge
 必须复核确认、顶满轮数时 judge 终裁该捞回（`ACCEPT` / `JUDGE_PASS`
 均算探针通过——`JUDGE_REJECT` / `JUDGE_FAIL` 算「该放没放」）。两头都验，
 剧本 judge 说 NO 是排好的，真实模型说 NO 才算数。
@@ -883,7 +886,7 @@ https://zhuanlan.zhihu.com/p/2097582147485824443）。核心观点：面对
 两者是选型问题，不是替代关系。
 
 运行入口：`mvn exec:java@workflow`（剧本离线演示，生产把
-ScriptedLlm 换成 KimiLlm 即可）。两个文件：
+ScriptedLlm 换成 JdkHttpLlm 即可）。两个文件：
 
 - `Workflow`：引擎，对应 JS 侧的 `agent()` / `parallel()`。
   `agent(name, prompt)` 起一个子智能体——它只看到自己的提示词，
@@ -931,7 +934,7 @@ token 预算意识：动态编排不是免费的，子智能体数 ≈ token 消
 3. **比较式协议比开放式可靠**（场景⑤）：裁判只回 1/2，三场全对；让模型打绝对分
    就不知道飘哪去了（同 loopbench 的教训复述）。
 
-顺带修了 `KimiLlm` 的 JSON 提取：反斜杠 u 四位十六进制转义之前被吞成
+顺带修了 `JdkHttpLlm` 的 JSON 提取：反斜杠 u 四位十六进制转义之前被吞成
 残留字符（`u003e`），现在按码点解码——所有真实 demo 的输出干净了。
 注意 Java 源码里连注释都过不了反斜杠-u 预扫描，注释里别写这个转义。
 

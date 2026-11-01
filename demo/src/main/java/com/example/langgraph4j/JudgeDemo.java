@@ -1,6 +1,6 @@
 package com.example.langgraph4j;
 
-import com.example.langgraph4j.llm.KimiLlm;
+import com.example.langgraph4j.llm.JdkHttpLlm;
 import com.example.langgraph4j.llm.ScriptedLlm;
 import com.example.langgraph4j.patterns.ReflectionGraph;
 import org.bsc.langgraph4j.CompileConfig;
@@ -17,7 +17,7 @@ import java.util.Map;
  * 会被「顶满轮数」直接交差甚至判负。现在顶满轮数 → 条件边 routed 到 judge
  * 节点，按意思终裁（verdict 通道写 JUDGE_PASS / JUDGE_FAIL）。
  *
- * <p>三个案例（generator/reflector 走剧本，judge 是真实 KimiLlm）：
+ * <p>三个案例（generator/reflector 走剧本，judge 是真实 JdkHttpLlm）：
  * <ul>
  *   <li>case 1：稿子本身好，reflector 故意一直不放行 → judge 终裁放行（捞回来）</li>
  *   <li>case 2：稿子跑题，reflector 也不放行 → judge 终裁不放行</li>
@@ -27,8 +27,8 @@ import java.util.Map;
 public class JudgeDemo {
 
     public static void main(String[] args) throws Exception {
-        if (System.getenv("KIMI_API_KEY") == null) {
-            System.err.println("缺少 KIMI_API_KEY 环境变量，无法调用真实模型");
+        if (System.getenv("LLM_API_KEY") == null) {
+            System.err.println("缺少 LLM_API_KEY 环境变量，无法调用真实模型");
             System.exit(1);
         }
         System.out.println("\n" + "=".repeat(66));
@@ -47,7 +47,7 @@ public class JudgeDemo {
                         .says("建议：还差点意思。评分 6/10。")
                         .says("十二小时低温慢萃，把时间的味道融进每一滴。")
                         .says("建议：还是不够精炼。评分 6/10。"),
-                new KimiLlm());
+                new JdkHttpLlm());
 
         // case 2：稿子跑题（说的是热咖啡、提神），reflector 同样不放行
         System.out.println("""
@@ -59,7 +59,7 @@ public class JudgeDemo {
                         .says("建议：没有体现低温工艺。评分 5/10。")
                         .says("热气腾腾的现磨咖啡，一口下去立刻精神百倍！")
                         .says("建议：方向不对。评分 5/10。"),
-                new KimiLlm());
+                new JdkHttpLlm());
 
         // case 3：稿子跑题，但 reflector 是个老好人，每轮都 ACCEPT → judge 复核打回
         System.out.println("""
@@ -71,14 +71,14 @@ public class JudgeDemo {
                         .says("语言精炼、气势十足，符合要求。ACCEPT")
                         .says("热气腾腾的现磨咖啡，一口下去立刻精神百倍！")
                         .says("确实不错。ACCEPT"),
-                new KimiLlm());
+                new JdkHttpLlm());
 
         // langgraph4j 内部的异步执行器是非 daemon 线程，演示结束后显式退出
         System.exit(0);
     }
 
     private static void runCase(String threadId, String task,
-                                ScriptedLlm scripted, KimiLlm judge) throws Exception {
+                                ScriptedLlm scripted, JdkHttpLlm judge) throws Exception {
         var graph = new ReflectionGraph(scripted, 2, judge).build().compile(
                 CompileConfig.builder().checkpointSaver(new MemorySaver()).build());
 

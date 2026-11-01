@@ -2,7 +2,7 @@ package com.example.langgraph4j.eval;
 
 import com.example.harness.config.AgentConfig;
 import com.example.langgraph4j.llm.CountingLlm;
-import com.example.langgraph4j.llm.KimiLlm;
+import com.example.langgraph4j.llm.JdkHttpLlm;
 import com.example.langgraph4j.llm.RateLimitedLlm;
 import com.example.langgraph4j.llm.RetryingLlm;
 import com.example.langgraph4j.llm.ScriptedLlm;
@@ -14,7 +14,7 @@ import org.bsc.langgraph4j.checkpoint.MemorySaver;
 import java.util.Map;
 
 /**
- * Ch8 轨迹评估 · 真实 LLM 版：ReflectionGraph × KimiLlm 跑 k=5。
+ * Ch8 轨迹评估 · 真实 LLM 版：ReflectionGraph × JdkHttpLlm 跑 k=5。
  *
  * <p>与 EvalDemo 的 ScriptedLlm 剧本不同，这里每次 trial 都是真实模型调用，
  * 步数、LLM 调用数、耗时都是真实跑出来的——看的是模型和图结构放在一起
@@ -31,8 +31,8 @@ import java.util.Map;
 public class RealEvalDemo {
 
     public static void main(String[] args) throws Exception {
-        if (System.getenv("KIMI_API_KEY") == null) {
-            System.err.println("缺少 KIMI_API_KEY 环境变量，无法调用真实模型");
+        if (System.getenv("LLM_API_KEY") == null) {
+            System.err.println("缺少 LLM_API_KEY 环境变量，无法调用真实模型");
             System.exit(1);
         }
         // 用法: RealEvalDemo [k] [startIndex] —— 真实模型单次调用慢，
@@ -58,7 +58,7 @@ public class RealEvalDemo {
                 () -> {
                     // RetryingLlm(RateLimitedLlm(...))：限流在内重试在外，重试风暴冲不破并发闸
                     CountingLlm llm = new CountingLlm(
-                            new RetryingLlm(new RateLimitedLlm(new KimiLlm(), 4, 200)));
+                            new RetryingLlm(new RateLimitedLlm(new JdkHttpLlm(), 4, 200)));
                     try {
                         // judge 与 generator/reflector 共用同一个 CountingLlm，裁判成本计入本 trial
                         CompiledGraph<ReflectionGraph.ReflectionState> graph =
@@ -112,7 +112,7 @@ public class RealEvalDemo {
                                 new ScriptedLlm()
                                         .says("热气腾腾的现磨咖啡，一口下去立刻精神百倍！")
                                         .says("写得有气势，我喜欢。ACCEPT"),
-                                1, new KimiLlm()).build().compile(
+                                1, new JdkHttpLlm()).build().compile(
                                 CompileConfig.builder().checkpointSaver(new MemorySaver()).build()),
                         Map.<String, Object>of("task",
                                 "为一款冷萃咖啡液写一句广告 slogan，要让人一眼看出：低温萃取、花了时间慢慢萃出来的"),
@@ -125,7 +125,7 @@ public class RealEvalDemo {
         var probeAccept = new AdversarialProbe<>(
                 "真实 judge 该放合格稿",
                 new TrialImpl(
-                        new ReflectionGraph(new KimiLlm(), 3, new KimiLlm()).build().compile(
+                        new ReflectionGraph(new JdkHttpLlm(), 3, new JdkHttpLlm()).build().compile(
                                 CompileConfig.builder().checkpointSaver(new MemorySaver()).build()),
                         Map.<String, Object>of("task",
                                 "为一款冷萃咖啡液写一句广告 slogan，要让人一眼看出：低温萃取、花了时间慢慢萃出来的"),

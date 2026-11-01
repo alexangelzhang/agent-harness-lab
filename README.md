@@ -71,15 +71,18 @@ executions 为准。
 
 ## 接入真实模型
 
-所有载体只依赖 `LlmClient` 接口。真实模型客户端已内置：
+所有载体只依赖 `LlmClient` 接口，任何 OpenAI 兼容端点都能接。内置客户端：
 
-- `KimiLlm`——Kimi（Moonshot）agent 网关，走 OpenAI 兼容接口，需要环境变量
-  `KIMI_API_KEY`，可选 `KIMI_CHAT_BASE` / `KIMI_MODEL`；
-- `LangChain4jLlm` / `OpenAiCompatibleLlm`——OpenAI 兼容接口，需要 `OPENAI_API_KEY`。
+- `LangChain4jLlm`——生产级写法，包 langchain4j 官方 OpenAI 客户端；
+- `JdkHttpLlm`——零依赖参考实现（JDK HttpClient + 手写 JSON）；
+- `WebSearchLlm`——客户端层联网搜索（$web_search 内置工具是 Moonshot 系网关的
+  私有扩展，端点不支持时不可用）；
+- `OpenAiCompatibleLlm`——手写版模块自带的同款零依赖客户端（读 `OPENAI_*` 变量）。
 
-环境变量统一经 `harness.config.AgentConfig` 装配（默认值 + 启动校验 + 注入式 `from(Map)`
-供测试）：`KIMI_API_KEY` / `KIMI_CHAT_BASE` / `KIMI_MODEL` / `AGENT_RUNS_DIR` /
-`AGENT_RULES_DIR`。新增配置不许再散落直读。
+配置只有三个变量（经 `harness.config.AgentConfig` 统一装配：默认值 + 启动校验 +
+注入式 `from(Map)`）：`LLM_API_KEY`（真实模式必填）/ `LLM_BASE_URL` / `LLM_MODEL`，
+产物目录另有 `AGENT_RUNS_DIR` / `AGENT_RULES_DIR`。旧名 `KIMI_API_KEY` 等仍兼容，
+新部署请用 `LLM_*`。新增配置不许再散落直读。
 
 真实模式的 demo 入口统一检查环境变量，缺 key 时明确报错退出，不会悄悄退回剧本。
 
@@ -95,7 +98,7 @@ core/src/main/java/com/example/    # agent-core：库（生产可用，语义化
 ├── langgraph4j/                # 状态图版 + 评估（见 LANGGRAPH4J.md）+ LLM 客户端
 │                               #（LlmClient 含 stream 流式输出：SSE 逐块 + 预算熔断）
 │   ├── patterns/               # 九个图版 + Multi-Agent
-│   ├── llm/                    # KimiLlm / LangChain4jLlm / ScriptedLlm / WebSearchLlm
+│   ├── llm/                    # JdkHttpLlm / LangChain4jLlm / ScriptedLlm / WebSearchLlm
 │   └── eval/                   # 轨迹级评估（Pass@k / 步数统计）
 ├── agentloop/                  # Agent loop 原语：行动→验收→带反馈重试
 ├── multiagent/                 # 四拓扑 + 委派护栏 + 选型决策 + 并行/时间盒

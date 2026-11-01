@@ -57,7 +57,7 @@ public class RealPatternsDemo {
                 ? List.of("reflection", "plansolve", "reflexion", "compiler", "lats", "selfdiscover", "storm")
                 : Arrays.asList(args[0].split(","));
 
-        LlmClient llm = LangChain4jLlm.kimi();
+        LlmClient llm = LangChain4jLlm.fromEnv();
         if (which.contains("reflection")) {
             demoReflection(llm);
         }

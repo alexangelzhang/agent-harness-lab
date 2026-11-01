@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * 真实 LLM 演示：用 KimiK2（经 Kimi Work agent 网关的 OpenAI 兼容接口）驱动状态图。
+ * 真实 LLM 演示：用 LLM_BASE_URL 指定的 OpenAI 兼容端点（真实模型）驱动状态图。
  * LLM 客户端用 langchain4j 官方 {@code OpenAiChatModel}（见 {@code LangChain4jLlm}）。
  *
  * <p>跑两张图：</p>
@@ -26,14 +26,14 @@ import java.util.function.Function;
  *       worker 纯 Java 执行，solver 汇总 —— 全程仅 2 次 LLM 调用。</li>
  * </ol>
  *
- * 配置：环境变量 KIMI_API_KEY（本机已注入）、KIMI_CHAT_BASE、KIMI_MODEL。
+ * 配置：环境变量 LLM_API_KEY（本机已注入）、LLM_BASE_URL、LLM_MODEL。
  */
 public class RealDemo {
 
     public static void main(String[] args) throws Exception {
         LlmClientBanner();
 
-        LlmClient llm = LangChain4jLlm.kimi();
+        LlmClient llm = LangChain4jLlm.fromEnv();
 
         demoReAct(llm);
         demoReWoo(llm);
