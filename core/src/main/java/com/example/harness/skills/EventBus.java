@@ -15,7 +15,7 @@ import java.util.function.Consumer;
  * 但「发布方不认识订阅方」这条语义先立住）。</p>
  *
  * <p>订阅按事件类型匹配（含超类型订阅），同一事件可发多个订阅者；
- * {@link #publishedCounts} 给出每类事件的发布计数，demo 收尾与排障都用得上。</p>
+ * {@link #publishedCounts} 给出每类事件的发布计数，场景 收尾与排障都用得上。</p>
  */
 public final class EventBus {
 

@@ -17,16 +17,16 @@ LANGGRAPH4J.md 是理解全貌的两张地图，动代码前先读对应章节�
 
 ## 构建与运行
 
-- 两模块：`core/` 是库（`agent-core`，语义化版本，生产可用），`demo/` 是集成验证（52 个 demo）。**铁律：core 不许依赖 demo 的任何类**（编译即验证）；新 demo 进 demo 模块、照抄相邻 pom execution 格式。
+- 两模块：`core/` 是库（`agent-core`，语义化版本，生产可用），`verify/` 是集成验证（52 个场景）。**铁律：core 不许依赖 verify 模块的任何类**（编译即验证）；新场景进 verify 模块、照抄相邻 pom execution 格式。
 - Java 17 + Maven。编译挂 `-Werror -Xlint:all`：**unused import、
   缺 serialVersionUID 这类警告会直接挂构建**，别留。
-- demo 入口走 pom 的 exec executions（登记在 demo/pom.xml）：
+- 场景入口走 pom 的 exec executions（登记在 verify/pom.xml）：
   `scripts/dev.sh <id>` 一条命令（先装 parent+core 再 exec，改 core 后无需手动 install）；
-  等价形式 `mvn -q exec:java@<id> -pl demo`（首次或改 core 后先
-  `mvn -q install -N && mvn -q install -pl core`）。**别用 `-pl demo -am` 跑
+  等价形式 `mvn -q exec:java@<id> -pl verify`（首次或改 core 后先
+  `mvn -q install -N && mvn -q install -pl core`）。**别用 `-pl verify -am` 跑
   exec**——goal 会落到 aggregator parent 上报 mainClass 缺失。
-  id 全表以 demo/pom.xml 的 exec executions 为准（LANGGRAPH4J.md 各章节随
-  能力引用）；新增 demo 两登记：pom execution + LANGGRAPH4J.md 对应章节
+  id 全表以 verify/pom.xml 的 exec executions 为准（LANGGRAPH4J.md 各章节随
+  能力引用）；新增场景两登记：pom execution + LANGGRAPH4J.md 对应章节
   运行行。README 运行一节只放快速上手入口，不再逐条罗列。
 - 单测：`mvn -q test -pl core`（JUnit 5，纯逻辑无 LLM 依赖的类先铺——
   RunStore/MetricsRegistry/TelemetryLlm/Tracer/RateLimitedLlm/PromptFuzzer 已有）；
@@ -49,10 +49,10 @@ LANGGRAPH4J.md 是理解全貌的两张地图，动代码前先读对应章节�
 ## 文案与风格
 
 - 一律中文「说人话」：去 AI 味、去套话（「低温」「慢萃」这类空卖点词是
-  反面教材），demo 输出和文档都是；
+  反面教材），场景输出和文档都是；
 - 研读外部文章走三步，一步不省：① 全文浓缩存档到 `docs/`（文件名见现有
   约定，开头注明出处链接）；② 文章点名的能力落地成代码进对应包（机制
-  对了不算完）；③ 剧本 demo 验证 + 登记 pom/LANGGRAPH4J，能接
+  对了不算完）；③ 剧本场景验证 + 登记 pom/LANGGRAPH4J，能接
   真实模型的再补真实对照组。只存档不落地的研读不算闭环；
 - 运行档案落在 `runs/runs.jsonl`，多种载体共用；`rules/` 下三份草稿
   （AGENTS.draft.md 剧本造历史、AGENTS.real-draft.md 真实运行、
@@ -62,8 +62,8 @@ LANGGRAPH4J.md 是理解全貌的两张地图，动代码前先读对应章节�
 ## 已知深坑
 
 - Java 源码里连注释都过不了 `\uXXXX` 预扫描，注释中别写这个转义；
-- JdkHttpLlm 的响应提取对转义敏感，改它要回归所有真实 demo；
-- 真实模型调用慢，单次命令有超时：真实模式 demo 一律做场景分片
+- JdkHttpLlm 的响应提取对转义敏感，改它要回归所有真实场景；
+- 真实模型调用慢，单次命令有超时：真实模式的场景一律做分片
   （参考 workflow 的 `real [1-7]`）。
 - 多 Agent 交接会绕圈（A→B→A 互踢皮球）：路由必须跳过当前持有者——
   接棒者提自己领域的词不是交接信号（topologyreal 场景四真实逼出）；

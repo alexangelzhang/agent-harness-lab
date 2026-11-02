@@ -16,7 +16,7 @@ import java.util.function.LongSupplier;
  *   <li>{@link #exportPrometheus()}：Prometheus 文本展示格式（v0.0.4），
  *       落地就是 {@code .prom} 文件，Grafana / VictoriaMetrics 的
  *       {@code textfile collector} 直接抓——不建 pushgateway 也有图看；</li>
- *   <li>{@link #snapshot()}：不可变快照，报表（RunReportDemo 一类）直接读。</li>
+ *   <li>{@link #snapshot()}：不可变快照，报表（RunReportScenario 一类）直接读。</li>
  * </ul>
  *
  * <p>命名约定（和 RunStore 底账互补）：底账答「这一次运行发生了什么」，

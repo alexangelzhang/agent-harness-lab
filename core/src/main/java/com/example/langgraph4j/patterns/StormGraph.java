@@ -205,7 +205,7 @@ public class StormGraph {
     }
 
     /** 演示剧本与手写版一致：3 章 ×（3 视角提问 + 1 正文）+ 引言 + 总结，共 15 次 LLM 调用。 */
-    public static void demo() throws Exception {
+    public static void runScenario() throws Exception {
         System.out.println("""
                 ── 手写版（先调研后成文）与本图的对照 ──
                    生成大纲                       → outline_generator 节点
@@ -254,7 +254,7 @@ public class StormGraph {
 
         var finalState = graph.invoke(GraphInput.args(
                 Map.of("topic", "Java 虚拟线程")),
-                RunnableConfig.builder().threadId("storm-demo").build());
+                RunnableConfig.builder().threadId("storm-场景").build());
 
         finalState.ifPresent(s ->
                 System.out.println("\n  [最终文章] 共 " + s.value("article").map(a -> ((List<?>) a).size()).orElse(0)

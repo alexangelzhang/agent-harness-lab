@@ -222,7 +222,7 @@ public class SelfDiscoverGraph {
     }
 
     /** 演示剧本与手写版一致：选模块 → JSON 计划（2 步）→ 逐步执行 → 汇总。 */
-    public static void demo() throws Exception {
+    public static void runScenario() throws Exception {
         System.out.println("""
                 ── 手写版（三阶段流水线）与本图的对照 ──
                    SELECT 阶段              → selector 节点
@@ -256,7 +256,7 @@ public class SelfDiscoverGraph {
 
         var finalState = graph.invoke(GraphInput.args(
                 Map.of("task", "小明有 3 个苹果，又买了 2 打（每打 12 个），他现在一共有多少个苹果？")),
-                RunnableConfig.builder().threadId("selfdiscover-demo").build());
+                RunnableConfig.builder().threadId("selfdiscover-场景").build());
 
         finalState.ifPresent(s ->
                 System.out.println("\n  [最终答案] " + s.<String>value("finalAnswer").orElse("")));

@@ -26,7 +26,7 @@ import java.util.List;
  * </ul>
  *
  * <p>对抗自我偏好偏差靠的是用法而非引擎：验证/评审永远起<strong>全新的</strong>
- * 子智能体做比较式判断（见 DynamicWorkflowDemo 的对抗验证与锦标赛场景），
+ * 子智能体做比较式判断（见 DynamicWorkflowScenario 的对抗验证与锦标赛场景），
  * 而不是让原作者给自己的产出打分。</p>
  *
  * <p>治理层挂钩（生产级底线，见 harness 包）：可选传入 {@link Budget}——

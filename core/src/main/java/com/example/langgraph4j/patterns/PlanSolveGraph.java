@@ -206,8 +206,8 @@ public class PlanSolveGraph {
                                 EXECUTOR, EXECUTOR, StateGraph.END, StateGraph.END));
     }
 
-    /** 运行演示：查订单 + 黄金价格（与手写版 Demo 同一剧本，含一次失败重规划）。 */
-    public static void demo() throws Exception {
+    /** 运行演示：查订单 + 黄金价格（与手写版同一剧本，含一次失败重规划）。 */
+    public static void runScenario() throws Exception {
         System.out.println("""
                 ── 手写版（while/if 循环）与本图的对照 ──
                    plan = planner(question)            → planner 节点
@@ -246,7 +246,7 @@ public class PlanSolveGraph {
 
         var finalState = graph.invoke(GraphInput.args(
                 Map.of("question", "帮我查一下订单 12345 的状态，再告诉我今天黄金价格")),
-                RunnableConfig.builder().threadId("plansolve-demo").build());
+                RunnableConfig.builder().threadId("plansolve-场景").build());
 
         finalState.ifPresent(s ->
                 System.out.println("\n  [最终回答] " + s.<String>value("finalAnswer").orElse("")));

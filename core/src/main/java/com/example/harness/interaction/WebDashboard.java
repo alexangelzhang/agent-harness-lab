@@ -14,14 +14,14 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * Web 交互架构（2026-10-31 补齐，教程第 9 章余量）：事件总线的浏览器皮肤。
  *
- * <p>不是又一个 demo 打印器——同一份事件流，CLI 用 {@link CliRenderer} 打字机，
+ * <p>不是又一个场景 打印器——同一份事件流，CLI 用 {@link CliRenderer} 打字机，
  * Web 用它渲染成页面：内嵌 HTTP 服务（JDK 自带 HttpServer，零第三方依赖），
  * 订阅 {@link EventBus} 收所有事件进环形缓冲，页面每秒拉一次 /events
  * 追加渲染。订阅方身份与 CLI 渲染器完全对等——事件总线的解耦在这里兑现：
  * 加一种皮肤不用动 agent 一行代码。</p>
  *
  * <p>生产对应物是 SSE/WebSocket 长连接 + 真前端框架；这里是「架构挂点
- * 跑通」的最小实现：换传输不换结构。用完 {@link #stop}，demo 绝不留
+ * 跑通」的最小实现：换传输不换结构。用完 {@link #stop}，场景 绝不留
  * 活着的服务进程。</p>
  */
 public final class WebDashboard {
@@ -104,17 +104,17 @@ public final class WebDashboard {
         }
     }
 
-    /** 环形缓冲里的当前事件数（demo 断言用）。 */
+    /** 环形缓冲里的当前事件数（场景 断言用）。 */
     public int eventCount() {
         return events.size();
     }
 
-    /** 已记录的人工决定（demo 断言用）：操作 id → approved/rejected。 */
+    /** 已记录的人工决定（场景 断言用）：操作 id → approved/rejected。 */
     public java.util.Map<String, String> decisions() {
         return java.util.Map.copyOf(decisions);
     }
 
-    /** 仍在等审批的操作数（demo 断言用）。 */
+    /** 仍在等审批的操作数（场景 断言用）。 */
     public int pendingCount() {
         return pending.size();
     }

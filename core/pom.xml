@@ -17,7 +17,7 @@
     <description>生产可用的 Agent 核心库：编排模式（ReAct/Reflection/REWOO/Plan&amp;Solve/Reflexion/LLMCompiler/
         路由/并行）、四种运行载体（手写/状态图/原语 loop/动态工作流）、多 Agent 拓扑（四模式+护栏+选型）、
         治理层（记忆/Sensor/技能/工具网关/凭据/注入防线/路径验证/失败归因/协议探针）与统一审计底账。
-        语义化版本：1.0.0 起公开包为稳定 API，demo 模块（agent-design-patterns）是其集成验证。</description>
+        语义化版本：1.0.0 起公开包为稳定 API，verify 模块（agent-verify）是其集成验证。</description>
 
     <dependencies>
         <!-- LangGraph 的 Java 移植版（独立于 LangChain4j/Spring AI，可搭配任意 LLM 客户端） -->

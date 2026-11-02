@@ -28,7 +28,7 @@ public record AgentConfig(String apiKey, String chatBase, String model,
     public static final String DEFAULT_CHAT_BASE = "https://agent-gw.kimi.com/coding/v1";
     public static final String DEFAULT_MODEL = "kimi-k2-0905-preview";
 
-    /** 从真实环境变量装配（生产/demo 入口用这个）。 */
+    /** 从真实环境变量装配（生产/场景入口用这个）。 */
     public static AgentConfig load() {
         return from(System.getenv());
     }

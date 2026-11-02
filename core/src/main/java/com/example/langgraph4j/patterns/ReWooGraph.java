@@ -217,7 +217,7 @@ public class ReWooGraph {
     }
 
     /** 演示剧本与手写版一致：Google 创立年份 + 距今年数（全程仅 2 次 LLM 调用）。 */
-    public static void demo() throws Exception {
+    public static void runScenario() throws Exception {
         System.out.println("""
                 ── 手写版（顺序执行）与本图的对照 ──
                    planOutput = planner(question)   → planner 节点（唯一一次规划 LLM 调用）
@@ -254,7 +254,7 @@ public class ReWooGraph {
 
         var finalState = graph.invoke(GraphInput.args(
                 Map.of("question", "Google 成立于哪一年？距今多少年了？")),
-                RunnableConfig.builder().threadId("rewoo-demo").build());
+                RunnableConfig.builder().threadId("rewoo-场景").build());
 
         finalState.ifPresent(s ->
                 System.out.println("\n  [最终答案] " + s.<String>value("finalAnswer").orElse("")));

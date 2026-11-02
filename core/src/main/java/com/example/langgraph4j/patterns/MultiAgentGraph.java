@@ -214,7 +214,7 @@ public class MultiAgentGraph {
     }
 
     /** 演示剧本：调度 2 轮（Researcher 查事实 → Calculator 算年数）后 FINISH。 */
-    public static void demo() throws Exception {
+    public static void runScenario() throws Exception {
         System.out.println("""
                 ── Multi-Agent（系列补充，图优先模式）的建模 ──
                    角色                     → worker 静态节点（每个角色一个，闭包捕获职责与工具）
@@ -255,7 +255,7 @@ public class MultiAgentGraph {
 
         var finalState = graph.invoke(GraphInput.args(
                 Map.of("task", "维基百科记载，Google 成立于哪一年？距今（2026 年）多少年了？")),
-                RunnableConfig.builder().threadId("multiagent-demo").build());
+                RunnableConfig.builder().threadId("multiagent-场景").build());
 
         finalState.ifPresent(s ->
                 System.out.println("\n  [最终答案] " + s.<String>value("finalAnswer").orElse("")));

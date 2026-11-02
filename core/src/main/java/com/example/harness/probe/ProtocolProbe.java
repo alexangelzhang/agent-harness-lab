@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
  * 表里 = 模型自造工具，提示词和工具表对不上。</p>
  *
  * <p>{@link #check} 返回结果不抛，适合打报告；{@link #require} 是硬闸门，
- * 探针不过直接抛——真实 demo 的 wiring 层用它 fail fast，别拿额度跑
+ * 探针不过直接抛——真实 场景 的 wiring 层用它 fail fast，别拿额度跑
  * 注定无效的实验。</p>
  */
 public final class ProtocolProbe {
@@ -84,13 +84,13 @@ public final class ProtocolProbe {
         return result;
     }
 
-    /** demo wiring 专用：探针不过打印原因退出（exit 1），过了返回结果。 */
+    /** 场景 wiring 专用：探针不过打印原因退出（exit 1），过了返回结果。 */
     public static Result requireOrExit(com.example.langgraph4j.llm.LlmClient llm, String protocolPrompt,
                                        Collection<String> declaredTools) {
         return requireOrExit(llm, protocolPrompt, ACTION, declaredTools);
     }
 
-    /** demo wiring 专用（自定义协议行 pattern）。 */
+    /** 场景 wiring 专用（自定义协议行 pattern）。 */
     public static Result requireOrExit(com.example.langgraph4j.llm.LlmClient llm, String protocolPrompt,
                                        Pattern protocolLine, Collection<String> declaredTools) {
         try {
@@ -104,7 +104,7 @@ public final class ProtocolProbe {
         }
     }
 
-    /** 从 Tool 列表提取工具名集合（真实 demo wiring 少写一层）。 */
+    /** 从 Tool 列表提取工具名集合（真实 场景 wiring 少写一层）。 */
     public static java.util.Set<String> names(java.util.List<Tool> tools) {
         java.util.Set<String> names = new java.util.LinkedHashSet<>();
         for (Tool t : tools) {

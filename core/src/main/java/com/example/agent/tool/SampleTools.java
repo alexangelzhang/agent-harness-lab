@@ -5,9 +5,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** 演示用的内置工具集：搜索（模拟）、计算器（真实现）、订单查询（模拟）。 */
-public final class DemoTools {
+public final class SampleTools {
 
-    private DemoTools() {
+    private SampleTools() {
     }
 
     /** 模拟搜索工具：内置几个关键字的固定答案，未命中时返回通用兜底结果。 */

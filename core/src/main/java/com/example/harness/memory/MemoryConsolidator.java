@@ -125,7 +125,7 @@ public final class MemoryConsolidator {
         return shared;
     }
 
-    /** 规则抽取：只认显式偏好句，demo 之外请换成 LLM 抽取。 */
+    /** 规则抽取：只认显式偏好句，场景 之外请换成 LLM 抽取。 */
     public static List<ExtractedFact> extract(String turnText, String source) {
         List<ExtractedFact> out = new ArrayList<>();
         List<String> retired = new ArrayList<>();

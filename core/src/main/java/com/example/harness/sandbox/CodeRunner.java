@@ -15,7 +15,7 @@ import java.nio.file.Path;
  * 策略拦截、超时、审计一个不少。</p>
  *
  * <p>注意这是「真实执行」原语：配 {@link LocalSandbox} 用，
- * 脚本语言取决于沙箱里有什么解释器（demo 用 python3）。</p>
+ * 脚本语言取决于沙箱里有什么解释器（场景 用 python3）。</p>
  */
 public final class CodeRunner {
 

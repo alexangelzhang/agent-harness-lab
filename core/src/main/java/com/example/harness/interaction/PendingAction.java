@@ -23,7 +23,7 @@ import java.util.TreeMap;
 public record PendingAction(String id, String action, Map<String, String> args,
                             String risk, String reason, long askedAtMs) {
 
-    /** 渲染载荷：界面agnostic的按钮描述（demo 打印 + WebDashboard 用）。 */
+    /** 渲染载荷：界面agnostic的按钮描述（场景 打印 + WebDashboard 用）。 */
     public String buttonPayload() {
         StringBuilder sb = new StringBuilder("待审批 #" + id + " [" + risk + "] " + action);
         Map<String, String> sorted = new TreeMap<>(args);

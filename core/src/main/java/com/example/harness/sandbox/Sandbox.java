@@ -4,7 +4,7 @@ package com.example.harness.sandbox;
  * 沙箱执行后端：编码 Agent Harness 的执行环境抽象（教程第 4 章的缺口补齐）。
  *
  * <p>工具循环里的「执行」有两类：调 LLM（本项目 {@code LlmClient} 已抽象）和
- * 动真实环境（跑命令、改文件）。后者以前散落在 demo 里，没有统一接口——
+ * 动真实环境（跑命令、改文件）。后者以前散落在 场景 里，没有统一接口——
  * 沙箱补上这一层：模型给出的命令统一经 {@link #exec} 进沙箱，
  * <strong>副作用发生在沙箱边界内</strong>，审批（{@code ApprovalPolicy}）、
  * 策略拦截（{@link #beforeExec}）和审计（{@link #afterExec}）都挂在边界上，

@@ -338,7 +338,7 @@ public class LatsGraph {
     }
 
     /** 演示剧本与手写版一致：两轮扩展——先搜「虚拟线程」再 Finish 总结。 */
-    public static void demo() throws Exception {
+    public static void runScenario() throws Exception {
         System.out.println("""
                 ── 手写版（搜索树 + 反思回溯）与本图的对照 ──
                    for depth in 0..maxDepth            → search 节点自环（条件边按 status 路由）
@@ -377,7 +377,7 @@ public class LatsGraph {
 
         var finalState = graph.invoke(GraphInput.args(
                 Map.of("question", "帮我了解 Java 的虚拟线程特性，并总结它适合什么场景")),
-                RunnableConfig.builder().threadId("lats-demo").build());
+                RunnableConfig.builder().threadId("lats-场景").build());
 
         finalState.ifPresent(s ->
                 System.out.println("\n  [最终答案] " + s.<String>value("finalAnswer").orElse("")));

@@ -390,8 +390,8 @@ public class ReflectionGraph {
         return graph.addConditionalEdges(REFLECTOR, edge_async(this::routeAfterReflector), routes);
     }
 
-    /** 运行演示：为一款冷萃咖啡液写一句广告 slogan（与手写版 Demo 同一剧本）。 */
-    public static void demo() throws Exception {
+    /** 运行演示：为一款冷萃咖啡液写一句广告 slogan（与手写版同一剧本）。 */
+    public static void runScenario() throws Exception {
         System.out.println("""
                 ── 手写版（while/if 循环）与本图的对照 ──
                    draft = generate(task, critique)   → generator 节点（draft/round 通道更新）
@@ -411,7 +411,7 @@ public class ReflectionGraph {
 
         var finalState = graph.invoke(GraphInput.args(
                 Map.of("task", "为一款冷萃咖啡液写一句广告 slogan")),
-                RunnableConfig.builder().threadId("reflection-demo").build());
+                RunnableConfig.builder().threadId("reflection-场景").build());
 
         finalState.ifPresent(s -> System.out.println("\n  [定稿] " + s.draft() + "（共 " + s.round() + " 轮）"));
 
@@ -436,7 +436,7 @@ public class ReflectionGraph {
 
         var finalState2 = graph2.invoke(GraphInput.args(
                 Map.of("task", "为一款冷萃咖啡液写一句广告 slogan")),
-                RunnableConfig.builder().threadId("reflection-demo-env").build());
+                RunnableConfig.builder().threadId("reflection-scenario-env").build());
 
         finalState2.ifPresent(s -> System.out.println("\n  [定稿] " + s.draft()
                 + "（共 " + s.round() + " 轮，终裁=" + s.verdict() + "，环境故障 " + s.envCount() + " 次）"));
@@ -466,7 +466,7 @@ public class ReflectionGraph {
 
         var finalState3 = graph3.invoke(GraphInput.args(
                 Map.of("task", "为一款冷萃咖啡液写一句广告 slogan")),
-                RunnableConfig.builder().threadId("reflection-demo-budget").build());
+                RunnableConfig.builder().threadId("reflection-scenario-budget").build());
 
         finalState3.ifPresent(s -> System.out.println("\n  [定稿] " + s.draft()
                 + "（共 " + s.round() + " 轮，终裁=" + s.verdict() + "）"));

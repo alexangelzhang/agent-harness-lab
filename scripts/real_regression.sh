@@ -27,7 +27,7 @@ failed_list=()
 run_shard() {
     local id="$1" args="$2"
     echo "=== [$(date +%H:%M:%S)] $id \"$args\" ===" | tee -a "$LOG"
-    if mvn -q exec:java@"$id" -pl demo -Dexec.args="$args" >> "$LOG" 2>&1; then
+    if mvn -q exec:java@"$id" -pl verify -Dexec.args="$args" >> "$LOG" 2>&1; then
         echo "--- PASS $id \"$args\"" | tee -a "$LOG"
         pass=$((pass + 1))
     else
@@ -37,8 +37,8 @@ run_shard() {
     fi
 }
 
-echo "构建 core + demo ..." | tee -a "$LOG"
-mvn -q install -N >> "$LOG" 2>&1 && mvn -q install -pl core >> "$LOG" 2>&1 && mvn -q compile -pl demo >> "$LOG" 2>&1
+echo "构建 core + verify ..." | tee -a "$LOG"
+mvn -q install -N >> "$LOG" 2>&1 && mvn -q install -pl core >> "$LOG" 2>&1 && mvn -q compile -pl verify >> "$LOG" 2>&1
 if [ $? -ne 0 ]; then
     echo "!! 构建失败，回归中止（见 $LOG）"
     exit 2

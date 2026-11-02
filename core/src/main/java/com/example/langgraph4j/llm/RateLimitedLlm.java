@@ -11,7 +11,7 @@ import java.util.concurrent.Semaphore;
  * {@code RetryingLlm(RateLimitedLlm(real))}——限流在内、重试在外，
  * 每次重试也要重新拿通行证，重试风暴冲不破并发闸。</p>
  *
- * <p>demo 里所有 {@code new JdkHttpLlm()} 目前是串行调用，不接它；它面向
+ * <p>场景 里所有 {@code new JdkHttpLlm()} 目前是串行调用，不接它；它面向
  * 多 Agent 并行（dispatchParallel）、批量评估（k 次 trial）这类真实并发
  * 场景——并发一上量，先有限流再谈别的。</p>
  */

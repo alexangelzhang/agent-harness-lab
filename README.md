@@ -50,23 +50,23 @@ STORM = 规划(大纲) + 工具调研 + 写作 的内容生成特化
 
 ## 运行
 
-两模块：`core/` 是库（`agent-core`，语义化版本，生产可用），`demo/` 是 52 个
-demo（库的可执行规约）。命令从仓库根跑，统一入口 `scripts/dev.sh <id>`
-（自动先装 parent+core，改完 core 直接跑；等价 `mvn -q exec:java@<id> -pl demo`）。
+两模块：`core/` 是库（`agent-core`，语义化版本，生产可用），`verify/` 是 52 个
+场景（库的可执行规约）。命令从仓库根跑，统一入口 `scripts/dev.sh <id>`
+（自动先装 parent+core，改完 core 直接跑；等价 `mvn -q exec:java@<id> -pl verify`）。
 
 第一次跑，这三条足够感受全貌：
 
 ```bash
-scripts/dev.sh graph      # 九大模式的状态图版（手写版：mvn -q exec:java -pl demo）
+scripts/dev.sh graph      # 九大模式的状态图版（手写版：mvn -q exec:java -pl verify）
 scripts/dev.sh loopbench  # 四种运行载体同剧本对比
 scripts/dev.sh report     # 历次运行沉淀成一张报表
 ```
 
 其余四十多个入口不在这里罗列——每个 id 写在 [LANGGRAPH4J.md](LANGGRAPH4J.md)
-对应能力的章节里，读到哪节跑哪节；全量 id 以 `demo/pom.xml` 的 exec
+对应能力的章节里，读到哪节跑哪节；全量 id 以 `verify/pom.xml` 的 exec
 executions 为准。
 
-剧本 demo 用 `ScriptedLlm` 假模型，离线可跑，完整打印控制流轨迹；真实模型
+剧本场景用 `ScriptedLlm` 假模型，离线可跑，完整打印控制流轨迹；真实模型
 对照组要 `KIMI_API_KEY`（见下节）。
 
 ## 接入真实模型
@@ -84,7 +84,7 @@ executions 为准。
 产物目录另有 `AGENT_RUNS_DIR` / `AGENT_RULES_DIR`。旧名 `KIMI_API_KEY` 等仍兼容，
 新部署请用 `LLM_*`。新增配置不许再散落直读。
 
-真实模式的 demo 入口统一检查环境变量，缺 key 时明确报错退出，不会悄悄退回剧本。
+真实模式的场景入口统一检查环境变量，缺 key 时明确报错退出，不会悄悄退回剧本。
 
 ## 代码结构
 
@@ -92,7 +92,7 @@ executions 为准。
 core/src/main/java/com/example/    # agent-core：库（生产可用，语义化版本）
 ├── agent/                      # 九大模式手写版
 │   ├── llm/                    # LlmClient / ScriptedLlm / OpenAiCompatibleLlm
-│   ├── tool/                   # Tool / ToolRegistry / DemoTools / Evaluator
+│   ├── tool/                   # Tool / ToolRegistry / SampleTools / Evaluator
 │   └── patterns/               # react / plan / rewoo / compiler / basicreflection
 │                               # / reflexion / lats / selfdiscover / storm
 ├── langgraph4j/                # 状态图版 + 评估（见 LANGGRAPH4J.md）+ LLM 客户端
@@ -110,8 +110,8 @@ core/src/main/java/com/example/    # agent-core：库（生产可用，语义化
                                 # / probe / redteam / routing / sandbox / security
                                 # / sensor / skills / telemetry / template / toolbase
 
-demo/src/main/java/com/example/    # agent-demo：52 个 demo = core 的可执行规约与回归套件
-└── （与 core 同包结构，只放 *Demo / DemoRunner / LoopBenchmark；
+verify/src/main/java/com/example/    # agent-verify：52 个场景 = core 的可执行规约与回归套件
+└── （与 core 同包结构，只放 *Scenario / PatternRunner / LoopBenchmark；
     mvn exec:java@<id> 入口全在这里登记）
 ```
 
@@ -124,7 +124,7 @@ demo/src/main/java/com/example/    # agent-demo：52 个 demo = core 的可执�
 - LATS 实现为教学简化版：宽度受限的最优先搜索 + 失败反思回溯，
   未实现完整 MCTS 的模拟退火与 UCT 公式。
 - 治理层的生产语义（预算耗尽转人工、越权调用在进工具前被拦、审批一事一议）
-  在 harness 包各 demo 里有完整剧本，真实模型路径已验证。
+  在 harness 包各场景里有完整剧本，真实模型路径已验证。
 - 设计原则（来自多轮 Harness 文章共识）：API 优先、浏览器兜底——结构化接口
   拿得到的数据不让模型点网页；上下文里永远不放凭据；批处理交给脚本，模型只管推理；
   fail-closed——未注册的工具查不到就拒，不猜不降级；治理挂在注册壳上，不进业务代码；

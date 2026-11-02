@@ -211,7 +211,7 @@ public class LlmCompilerGraph {
     }
 
     /** 演示剧本与手写版一致：张译/吴京出生日期并行搜索 → 求年龄差。 */
-    public static void demo() throws Exception {
+    public static void runScenario() throws Exception {
         System.out.println("""
                 ── 手写版（线程池波次调度）与本图的对照 ──
                    dag = planner(question)          → planner 节点
@@ -250,7 +250,7 @@ public class LlmCompilerGraph {
 
         var finalState = graph.invoke(GraphInput.args(
                 Map.of("question", "张译和吴京相差几岁？")),
-                RunnableConfig.builder().threadId("compiler-demo").build());
+                RunnableConfig.builder().threadId("compiler-场景").build());
 
         finalState.ifPresent(s ->
                 System.out.println("\n  [最终答案] " + s.<String>value("finalAnswer").orElse("")));

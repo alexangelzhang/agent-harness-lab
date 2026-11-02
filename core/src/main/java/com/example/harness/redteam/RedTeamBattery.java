@@ -141,7 +141,7 @@ public final class RedTeamBattery {
     /**
      * 脱敏红队管线：目标前面先过 {@link InjectionGuard}——被拦的注入句子
      * 整句替换、全文包不可信标记，目标只看到「数据」，攻击意图到不了模型。
-     * demo 用它和无护栏裸目标对打，突破率差就是防线的价值。
+     * 场景 用它和无护栏裸目标对打，突破率差就是防线的价值。
      */
     public static LlmClient guarded(LlmClient target, InjectionGuard guard) {
         return prompt -> target.complete(guard.sanitize(prompt));

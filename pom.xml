@@ -12,10 +12,10 @@
     <name>agent-harness-lab</name>
     <description>Agent 工程实验场（Java）：从九大设计模式到生产级 Harness——编排模式、四种运行载体（手写/状态图/原语 loop/动态工作流）与治理层（预算/档案/工具网关/审批/规则蒸馏）</description>
 
-    <!-- 两模块：core 是库（agent-core，语义化版本），demo 是集成验证（全部入口照旧 mvn -q exec:java@id，cwd=仓库根） -->
+    <!-- 两模块：core 是库（agent-core，语义化版本），verify 是集成验证（全部入口照旧 mvn -q exec:java@id，cwd=仓库根） -->
     <modules>
         <module>core</module>
-        <module>demo</module>
+        <module>verify</module>
     </modules>
 
     <properties>

@@ -166,7 +166,7 @@ public class ReflexionGraph {
     }
 
     /** 演示剧本与手写版一致：17+25 第一次算错（52），反思进位问题后第二次答对（42）。 */
-    public static void demo() throws Exception {
+    public static void runScenario() throws Exception {
         System.out.println("""
                 ── 手写版（for 循环）与本图的对照 ──
                    for trial in 1..maxTrials        → 条件边 routeAfterEvaluator（trial 字段防死循环）
@@ -188,7 +188,7 @@ public class ReflexionGraph {
 
         var finalState = graph.invoke(GraphInput.args(
                 Map.of("question", "17 + 25 等于多少？")),
-                RunnableConfig.builder().threadId("reflexion-demo").build());
+                RunnableConfig.builder().threadId("reflexion-场景").build());
 
         finalState.ifPresent(s -> {
             System.out.println("\n  [最终答案] " + s.<String>value("finalAnswer").orElse(""));
