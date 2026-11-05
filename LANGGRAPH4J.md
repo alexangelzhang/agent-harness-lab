@@ -53,7 +53,7 @@
 ## 运行
 
 仓库分两模块（2026-11-01 起）：`core/`=库 `agent-core`（语义化版本，生产可用），
-`verify/`=57 个场景（core 的可执行规约）。以下命令从仓库根跑，
+`verify/`=58 个场景（core 的可执行规约）。以下命令从仓库根跑，
 `scripts/dev.sh <id>` 与 `mvn -q exec:java@<id> -pl verify` 等价
 （前者自动先装 parent+core；首次手动跑先 `mvn -q install -N && mvn -q install -pl core`）：
 
@@ -655,6 +655,10 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
   「已投递/已拒绝」清单重播种。零写入不靠自觉靠类型——侧车的依赖
   是 `MemoryReader` 只读视图，写方法编译期就不存在。场景
   （`mvn exec:java@kibitzer`）：按闹铃醒 + 驳回与退避两幕，断言全绿。
+  真实对照组（`mvn exec:java@kibitzerreal -Dexec.args="[1-2]"`，需
+  LLM_API_KEY）：探针预检裁判协议后，真实模型当裁判——危险事件
+  给出带理由的 NUDGE（「请先完成 DBA 会签再执行 migrate.sql」），
+  无关事件零唤醒，结构断言全绿。
 - `CandidateFilter` / `ModelRouter`（`harness.routing` 包，2026-10-31，
   十二部件 #4/#9）：小决定不花大模型。筛选器把检索回来的候选按
   关键词重叠打分，只放过线且进 topK 的进上下文，滤掉谁带分数可解释；

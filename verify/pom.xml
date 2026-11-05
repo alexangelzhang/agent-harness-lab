@@ -303,6 +303,12 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <id>kibitzerreal</id>
+                        <configuration>
+                            <mainClass>com.example.harness.memory.KibitzerRealScenario</mainClass>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>sensor</id>
                         <configuration>
                             <mainClass>com.example.harness.sensor.SensorScenario</mainClass>
