@@ -50,7 +50,7 @@ STORM = 规划(大纲) + 工具调研 + 写作 的内容生成特化
 
 ## 运行
 
-两模块：`core/` 是库（`agent-core`，语义化版本，生产可用），`verify/` 是 55 个
+两模块：`core/` 是库（`agent-core`，语义化版本，生产可用），`verify/` 是 56 个
 场景（库的可执行规约）。命令从仓库根跑，统一入口 `scripts/dev.sh <id>`
 （自动先装 parent+core，改完 core 直接跑；等价 `mvn -q exec:java@<id> -pl verify`）。
 
@@ -110,7 +110,7 @@ core/src/main/java/com/example/    # agent-core：库（生产可用，语义化
                                 # / probe / redteam / routing / sandbox / security
                                 # / sensor / skills / telemetry / template / toolbase
 
-verify/src/main/java/com/example/    # agent-verify：55 个场景 = core 的可执行规约与回归套件
+verify/src/main/java/com/example/    # agent-verify：56 个场景 = core 的可执行规约与回归套件
 └── （与 core 同包结构，只放 *Scenario / PatternRunner / LoopBenchmark；
     mvn exec:java@<id> 入口全在这里登记）
 ```

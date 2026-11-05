@@ -43,6 +43,7 @@
 | 11-01 | Anthropic 折叠 subagent 研读落地 | `FoldEvalScenario`（`@foldeval`，eval 包）同一组 Golden Examples 跑 Subagent 分派版 vs 折回主 Loop 版（Skill 注入 + 工具表）各 2 遍——复刻原文客服失败案例：订单题折叠版第 1 遍漏调 query_shipping 从过变挂（1/2），简单题无损且平均调用严格更少；`SkillDoctorScenario`（`@skilldoctor`，harness.skills 包）技能库体检——使用频率（僵尸/低频）+ promptSnippet 3-gram Jaccard 重复度 + trigger 撞车三维度出膨胀候选清单；真实对照组 `RealFoldEvalScenario`（`@realfoldeval`）跑出剧本给不了的教训：prompt 没写协议说明时真实模型 6/6 遍全程自然语言、一轮 Action 不吐（教协议前别谈行为），补齐后 6/6 全走对；`ProtocolProbe`（`harness.probe` 包，`@protocolprobe`）协议自检探针把教训固化成真实实验前置预检——一次最小调用确认模型会吐协议行，requireOrExit 硬闸门 fail fast 不烧额度，支持自定义协议行 pattern（multiagent 分派协议经 `rosterProtocol` 接入，探针 prompt 没给专员名单时真实模型真会自造名字，第一版实测命中），已接入 realfoldeval / real / realadvanced×2 / supervisorreal / topologyreal 并逐一真实回归；见 docs/anthropic_fold_subagents.md |
 | 11-05 | Kibitzer 记忆侧车 | OmO（oh-my-openagent）研读落地：新子包 `harness.memory.kibitzer`——`KibitzerEvent`（事件进侧车前截断 + secret 脱敏）、`MemoryReader`（只读视图，零写入是编译期事实不是约定）、`Kibitzer`（唤醒闸门：触到未判定记忆才花裁判模型调用；每 wake 8 次只读自证预算；唯一动作 nudge；裁判故障退避不误判；已投递/已拒绝清单重播种）——召回之后注入之前的常驻裁判，与同步 RecallPipeline 互补；场景 `@kibitzer` 两幕全断言——见 docs/omo_orchestration_kibitzer.md |
 | 11-05 | 容错层 | OmO 容错层落地进 `harness.toolbase`：`HashLineEditor` 哈希锚定编辑（`行号#哈希|内容` 渲染、FNV-1a 取模出锚、全空白行行号做种子、整批验锚原子拒绝、区间重叠应用前检出、从尾到头应用行号不失效）、`ToolCallRepairer` 畸形 tool_call 先修再判（去围栏/剥散文/尾逗号/单引号/按契约类型矫正，逐条记账可审计，缺必填 fail-closed 不靠猜）——场景 `@faulttolerance` 两幕全断言 |
+| 11-05 | 纪律层 | OmO 纪律层落地进 `harness.planning`：`TodoEnforcer`（清单没勾完整轮无进展就注入拽回提示，连续空转升级语气、到上限闭嘴转人工，一有进展计数清零）、`GoalAudit`（会话级目标 opt-in；收工不由 agent 自称，裁判模型对着目标审证据，审不过注入续跑提示、上限耗尽放行但记未竟；审计员故障按未达成处理，不放行没审过的收工）——场景 `@discipline` 两幕全断言 |
 
 一句话：模式层（九大模式）→ 载体层（手写/状态图/原语/动态工作流，可对比选型）
 → 治理层（预算/档案/网关/审批/蒸馏/记忆——写回有闸门、遗忘在岗、五维可量）
@@ -51,7 +52,7 @@
 ## 运行
 
 仓库分两模块（2026-11-01 起）：`core/`=库 `agent-core`（语义化版本，生产可用），
-`verify/`=55 个场景（core 的可执行规约）。以下命令从仓库根跑，
+`verify/`=56 个场景（core 的可执行规约）。以下命令从仓库根跑，
 `scripts/dev.sh <id>` 与 `mvn -q exec:java@<id> -pl verify` 等价
 （前者自动先装 parent+core；首次手动跑先 `mvn -q install -N && mvn -q install -pl core`）：
 
@@ -473,6 +474,15 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
   场景（`mvn exec:java@interaction`）：查物流 AUTO、导出数据 ASK
   （人选脱敏样本）、删库 FORBID；流式渲染；清单反懈怠与三种查询的
   工具排序；Web 面板起服务、HTTP 自证、停服务。
+- `TodoEnforcer` / `GoalAudit`（`harness.planning` 包，2026-11-05，
+  OmO 纪律层研读落地）：清单只是记录，纪律靠执行。TodoEnforcer
+  盯住每一轮——清单没勾完而整轮无进展就注入拽回提示，连续空转
+  逐级升级（提醒 → 严正 → 最后通牒），到上限闭嘴转人工（拽不动
+  是任务卡死，不是态度问题），一有进展计数清零。GoalAudit 会话级
+  目标 + 完成审计：收工不由 agent 自称，裁判模型对着目标审证据，
+  审不过注入续跑提示（带上限，耗尽放行但记未竟）；审计员故障按
+  未达成处理——没审过的收工不放行。场景（`mvn exec:java@discipline`）：
+  空转拽回/升级/清零/上限 + 审计驳回/放行/死磕上限/审计员故障 两幕。
 - `Skill` / `SkillRegistry` / `EventBus`（`harness.skills` 包，2026-10-31，
   教程第 10 章）：技能与扩展机制。技能 = 触发信号 + 工具组 + 提示词用法说明，
   注册不等于加载——请求命中信号才 `load` 进系统提示词（工具表随任务长出来）；
