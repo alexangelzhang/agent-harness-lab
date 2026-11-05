@@ -41,6 +41,7 @@
 | 11-01 | 生产化缺口 #6 并发与资源 | `RateLimitedLlm`（llm 包）：限流与背压两闸——并发上限（信号量，超出原地排队=背压）+ 最小调用间隔（防突发打满网关配额）；与 RetryingLlm 正交，推荐 `RetryingLlm(RateLimitedLlm(real))` 限流在内重试在外，重试风暴冲不破并发闸；HTTP 侧 JdkHttpLlm 改全 JVM 共享 HttpClient（连接复用，WebSearchLlm 早就是共享）；新场景 `@ratelimit`（剧本离线）：6 线程打上限 2（峰值恰 2、排队不丢）+ 100ms 间隔（5 次 412ms vs 对照 0ms）4 断言全绿 |
 | 11-01 | 生产化三缺口（2~4） | 库形态：仓库分模块——`core/`=库 `agent-core`（121 个类，语义化版本，铁律 core 不依赖 verify 模块，编译即验证），`verify/`=52 个场景（exec executions 随迁），`scripts/dev.sh <id>` 一条命令（装 parent+core 再 exec），等价 `mvn -q exec:java@<id> -pl verify`；配置管理：`harness.config.AgentConfig` 统一装配（LLM_API_KEY/CHAT_BASE/MODEL/AGENT_RUNS_DIR/AGENT_RULES_DIR，默认值+requireApiKey 启动校验+from(Map) 注入式），JdkHttpLlm/LangChain4jLlm/WebSearchLlm 与全部场景横幅直读已收敛；状态存储：`RunStore` 硬化——跨进程文件锁（FileChannel.lock）、超 8MB 轮转进 archive/、留最近 5 份归档、坏行跳过告警不拖垮读取，临时验证程序 8/8 实测（轮转顺序保持/坏行容忍/保留上限/clear 连归档清），@topology 写账 + @report 读账回归正常 |
 | 11-01 | Anthropic 折叠 subagent 研读落地 | `FoldEvalScenario`（`@foldeval`，eval 包）同一组 Golden Examples 跑 Subagent 分派版 vs 折回主 Loop 版（Skill 注入 + 工具表）各 2 遍——复刻原文客服失败案例：订单题折叠版第 1 遍漏调 query_shipping 从过变挂（1/2），简单题无损且平均调用严格更少；`SkillDoctorScenario`（`@skilldoctor`，harness.skills 包）技能库体检——使用频率（僵尸/低频）+ promptSnippet 3-gram Jaccard 重复度 + trigger 撞车三维度出膨胀候选清单；真实对照组 `RealFoldEvalScenario`（`@realfoldeval`）跑出剧本给不了的教训：prompt 没写协议说明时真实模型 6/6 遍全程自然语言、一轮 Action 不吐（教协议前别谈行为），补齐后 6/6 全走对；`ProtocolProbe`（`harness.probe` 包，`@protocolprobe`）协议自检探针把教训固化成真实实验前置预检——一次最小调用确认模型会吐协议行，requireOrExit 硬闸门 fail fast 不烧额度，支持自定义协议行 pattern（multiagent 分派协议经 `rosterProtocol` 接入，探针 prompt 没给专员名单时真实模型真会自造名字，第一版实测命中），已接入 realfoldeval / real / realadvanced×2 / supervisorreal / topologyreal 并逐一真实回归；见 docs/anthropic_fold_subagents.md |
+| 11-05 | Kibitzer 记忆侧车 | OmO（oh-my-openagent）研读落地：新子包 `harness.memory.kibitzer`——`KibitzerEvent`（事件进侧车前截断 + secret 脱敏）、`MemoryReader`（只读视图，零写入是编译期事实不是约定）、`Kibitzer`（唤醒闸门：触到未判定记忆才花裁判模型调用；每 wake 8 次只读自证预算；唯一动作 nudge；裁判故障退避不误判；已投递/已拒绝清单重播种）——召回之后注入之前的常驻裁判，与同步 RecallPipeline 互补；场景 `@kibitzer` 两幕全断言——见 docs/omo_orchestration_kibitzer.md |
 
 一句话：模式层（九大模式）→ 载体层（手写/状态图/原语/动态工作流，可对比选型）
 → 治理层（预算/档案/网关/审批/蒸馏/记忆——写回有闸门、遗忘在岗、五维可量）
@@ -49,7 +50,7 @@
 ## 运行
 
 仓库分两模块（2026-11-01 起）：`core/`=库 `agent-core`（语义化版本，生产可用），
-`verify/`=52 个场景（core 的可执行规约）。以下命令从仓库根跑，
+`verify/`=54 个场景（core 的可执行规约）。以下命令从仓库根跑，
 `scripts/dev.sh <id>` 与 `mvn -q exec:java@<id> -pl verify` 等价
 （前者自动先装 parent+core；首次手动跑先 `mvn -q install -N && mvn -q install -pl core`）：
 
@@ -629,6 +630,19 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
   任务开场注入——档案从「等审计的底账」变成「会被想起的经验」。
   场景（`mvn exec:java@episodic`）：两条失败档案 → 1 条教训 → 再蒸馏
   0 新增 → 同类任务召回时教训进场。
+- `Kibitzer` / `KibitzerEvent` / `MemoryReader`（`harness.memory.kibitzer`
+  包，2026-11-05，OmO 研读落地）：记忆召回的常驻裁判——每主会话一个
+  只读侧车，主 loop 的 prompt / 工具调用 / 工具结果截断脱敏成
+  `KibitzerEvent` 后喂给它，不挡主 loop 的路。唤醒闸门：事件触到
+  「还没判定过」的已存记忆才花一次裁判模型调用（便宜小模型的位置），
+  没触到零消耗；一次 wake 内最多 8 次只读探查自证，裁判说值得提醒
+  才把 `recalled memory: <hint>` 拍进主会话，同一条记忆判过不重判；
+  事件文本进裁判 prompt 前过 `InjectionGuard`（工具结果是攻击者能
+  碰的输入面，注入句整句拦截，防伪造 nudge）；裁判调用炸了退避
+  不误判，记忆保持未判定等下次；上下文塞满时用
+  「已投递/已拒绝」清单重播种。零写入不靠自觉靠类型——侧车的依赖
+  是 `MemoryReader` 只读视图，写方法编译期就不存在。场景
+  （`mvn exec:java@kibitzer`）：按闹铃醒 + 驳回与退避两幕，断言全绿。
 - `CandidateFilter` / `ModelRouter`（`harness.routing` 包，2026-10-31，
   十二部件 #4/#9）：小决定不花大模型。筛选器把检索回来的候选按
   关键词重叠打分，只放过线且进 topK 的进上下文，滤掉谁带分数可解释；

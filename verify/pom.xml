@@ -279,6 +279,12 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <id>kibitzer</id>
+                        <configuration>
+                            <mainClass>com.example.harness.memory.KibitzerScenario</mainClass>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>sensor</id>
                         <configuration>
                             <mainClass>com.example.harness.sensor.SensorScenario</mainClass>
