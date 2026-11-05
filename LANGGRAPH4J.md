@@ -43,7 +43,8 @@
 | 11-01 | Anthropic 折叠 subagent 研读落地 | `FoldEvalScenario`（`@foldeval`，eval 包）同一组 Golden Examples 跑 Subagent 分派版 vs 折回主 Loop 版（Skill 注入 + 工具表）各 2 遍——复刻原文客服失败案例：订单题折叠版第 1 遍漏调 query_shipping 从过变挂（1/2），简单题无损且平均调用严格更少；`SkillDoctorScenario`（`@skilldoctor`，harness.skills 包）技能库体检——使用频率（僵尸/低频）+ promptSnippet 3-gram Jaccard 重复度 + trigger 撞车三维度出膨胀候选清单；真实对照组 `RealFoldEvalScenario`（`@realfoldeval`）跑出剧本给不了的教训：prompt 没写协议说明时真实模型 6/6 遍全程自然语言、一轮 Action 不吐（教协议前别谈行为），补齐后 6/6 全走对；`ProtocolProbe`（`harness.probe` 包，`@protocolprobe`）协议自检探针把教训固化成真实实验前置预检——一次最小调用确认模型会吐协议行，requireOrExit 硬闸门 fail fast 不烧额度，支持自定义协议行 pattern（multiagent 分派协议经 `rosterProtocol` 接入，探针 prompt 没给专员名单时真实模型真会自造名字，第一版实测命中），已接入 realfoldeval / real / realadvanced×2 / supervisorreal / topologyreal 并逐一真实回归；见 docs/anthropic_fold_subagents.md |
 | 11-05 | Kibitzer 记忆侧车 | OmO（oh-my-openagent）研读落地：新子包 `harness.memory.kibitzer`——`KibitzerEvent`（事件进侧车前截断 + secret 脱敏）、`MemoryReader`（只读视图，零写入是编译期事实不是约定）、`Kibitzer`（唤醒闸门：触到未判定记忆才花裁判模型调用；每 wake 8 次只读自证预算；唯一动作 nudge；裁判故障退避不误判；已投递/已拒绝清单重播种）——召回之后注入之前的常驻裁判，与同步 RecallPipeline 互补；场景 `@kibitzer` 两幕全断言——见 docs/omo_orchestration_kibitzer.md |
 | 11-05 | 容错层 | OmO 容错层落地进 `harness.toolbase`：`HashLineEditor` 哈希锚定编辑（`行号#哈希|内容` 渲染、FNV-1a 取模出锚、全空白行行号做种子、整批验锚原子拒绝、区间重叠应用前检出、从尾到头应用行号不失效）、`ToolCallRepairer` 畸形 tool_call 先修再判（去围栏/剥散文/尾逗号/单引号/按契约类型矫正，逐条记账可审计，缺必填 fail-closed 不靠猜）——场景 `@faulttolerance` 两幕全断言 |
-| 11-05 | 纪律层 | OmO 纪律层落地进 `harness.planning`：`TodoEnforcer`（清单没勾完整轮无进展就注入拽回提示，连续空转升级语气、到上限闭嘴转人工，一有进展计数清零）、`GoalAudit`（会话级目标 opt-in；收工不由 agent 自称，裁判模型对着目标审证据，审不过注入续跑提示、上限耗尽放行但记未竟；审计员故障按未达成处理，不放行没审过的收工）——场景 `@discipline` 两幕全断言 |
+| 11-05 | 纪律层 | OmO 纪律层落地进 `harness.planning`：`TodoEnforcer`（清单没勾完整轮无进展就注入拽回提示，连续空转升级语气、到上限闭嘴转人工，一有进展计数清零）、`GoalAudit`（会话级目标 opt-in；收工不由 agent 自称，裁判模型对着目标审证据，审不过注入续跑提示、上限耗尽放行但记未竟；审计员故障单独计数不占预算——没审过的收工不放行）——场景 `@discipline` 两幕全断言 |
+| 11-05 | Category 路由 + fallback 链 | OmO 模型路由落地进 `harness.routing`：`CategoryRouter`——委派写意图（quick/deep/……）不写模型名，每个 category 挂 provider 优先级链；选档跳过断供 provider，运行中炸了降级重试且每跳记尝试史，链耗尽 fail-closed；每档钉 prompt 预设（MECHANISTIC/PRINCIPLED），换档换说法——场景 `@categoryrouting` 两幕全断言 |
 
 一句话：模式层（九大模式）→ 载体层（手写/状态图/原语/动态工作流，可对比选型）
 → 治理层（预算/档案/网关/审批/蒸馏/记忆——写回有闸门、遗忘在岗、五维可量）
@@ -52,7 +53,7 @@
 ## 运行
 
 仓库分两模块（2026-11-01 起）：`core/`=库 `agent-core`（语义化版本，生产可用），
-`verify/`=56 个场景（core 的可执行规约）。以下命令从仓库根跑，
+`verify/`=57 个场景（core 的可执行规约）。以下命令从仓库根跑，
 `scripts/dev.sh <id>` 与 `mvn -q exec:java@<id> -pl verify` 等价
 （前者自动先装 parent+core；首次手动跑先 `mvn -q install -N && mvn -q install -pl core`）：
 
@@ -660,6 +661,17 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
   模型路由按任务信号分 FAST/BALANCED/FRONTIER 三档，每条决定带命中
   规则名。场景（`mvn exec:java@routing`）：3 候选滤成 2、删生产索引走
   frontier / 查物流走 fast / 写方案走 balanced。
+- `CategoryRouter`（`harness.routing` 包，2026-11-05，OmO category 路由
+  研读落地）：委派写意图不写模型名。每个 category 挂一条 provider
+  优先级链（quick/deep/visual-engineering……），选档时跳过没连接的
+  provider，运行中当前档调用炸了就降级到下一档重试，每一跳记进
+  尝试史可审计；链耗尽 fail-closed，不静默跨 category 换工种。
+  每档钉一个 prompt 预设（MECHANISTIC 机制驱动 / PRINCIPLED 原则
+  驱动）——换档换说法，Claude 家族吃长指令、GPT 家族给目标不给
+  步骤。与 ModelRouter 分工：ModelRouter 按任务信号分档（这活花
+  多少钱），CategoryRouter 按工种找模型链（这活找谁干、断了找谁顶）。
+  场景（`mvn exec:java@categoryrouting`）：全连接/断供/全断选档 +
+  首选炸了降级出活/链耗尽报错 两幕。
 - `CredentialVault`（`harness.credentials` 包，2026-10-31，十二部件 #7）：
   凭据不进模型上下文。模型手里的参数只有 `${SECRET:stripe}` 占位符，
   inject 在执行边界换真值；scan 是兜底安全网——任何要留痕的文本出现

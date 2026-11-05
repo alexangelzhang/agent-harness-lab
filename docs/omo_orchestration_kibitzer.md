@@ -84,3 +84,15 @@
 - **Comment checker**：自动剥 AI 腔注释（本次未落地，属文案纪律而非执行纪律）。
 
 **对我们的启发**：我们原有 TodoList 解决了「记」，这次补的是「执行」；Goal 与 Todo 的分工值得保留——清单全勾 ≠ 目标达成（事都办了，结果不对），所以收工需要对着目标审证据，而不是数勾。
+
+## 八、Category 路由与模型匹配（2026-11-05 补读，落地对象）
+
+出处：omo.dev Docs 总页「Agent Model Matching」与 docs/guide/agent-model-matching.md。
+
+- **委派写意图不写模型名**：模型名带着模型自己对能力边界的想象，category 带的是任务意图。内置 category：architect（设计咨询）、deep（硬调试/重研究）、ultrabrain（单个硬逻辑）、quick（机械单文件）、visual-engineering（前端）、writing（文档）、unspecified-high/low（兜底）。
+- **每个 category 一条 provider 优先级链**：会话开始按链取第一个已连接的档（打印跳过了哪几档）；运行中当前档失败按 Senpi 的重试链降级。链可以在 omo.json 里按 category/agent 覆盖。
+- **不可用的 category 显式报缺**：ultrabrain/deep 需要 GPT 旗舰，registry 里没有就如实说「不可用」，不静默路由到别的家族。
+- **每模型家族定制 prompt 预设**：Claude 家族吃机制驱动的长指令（orchestration prompt 就是对着 Claude 写的），GPT 家族吃原则驱动的短指令（给目标不给步骤，小任务上过度编排是已知风险）；Kimi K3 行为接近 Claude，GLM 类似。
+- **profile 是意图不是型号**：`model_profile: "capable"` = 按链取最强通用模型；带 `/` 的是 pin 死型号。优先级：命令行 --model > pin > profile > 引擎默认。
+
+**对我们的启发**：我们已有 ModelRouter（按任务信号分 FAST/BALANCED/FRONTIER），回答「这活该花多少钱」；category 链回答「这活是什么工种、断了找谁顶」——两层正交。prompt 预设钉在链上而不是全局一份，是「换模型不换说法」的解法。

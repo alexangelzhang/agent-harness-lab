@@ -237,6 +237,12 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <id>categoryrouting</id>
+                        <configuration>
+                            <mainClass>com.example.harness.routing.CategoryRoutingScenario</mainClass>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>hotreload</id>
                         <configuration>
                             <mainClass>com.example.harness.skills.SkillHotReloadScenario</mainClass>
