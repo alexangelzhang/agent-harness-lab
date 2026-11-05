@@ -57,3 +57,19 @@
 - 「bounded + redacted event」与我们的 Sensor 反馈层思路相通：治理层看到的一切都该先过脱敏和截断。
 - 「每 wake 8 次只读工具调用 + 零写入」是一个可断言的强不变量，适合剧本场景直接验证。
 - 「上下文满了用已投递/已拒绝重播种」是 sidecar 自己的压缩策略，比通用摘要便宜。
+
+## 六、容错层机制（2026-11-05 补读，落地对象）
+
+出处：packages/hashline-core/（AGENTS.md + src/hash-computation.ts + src/edit-operations.ts）与 packages/omo-opencode/src/hooks/tool-pair-validator/tool-result-repair.ts。
+
+**Hashline 哈希锚定编辑**：
+- 每行渲染为 `LINE#HASH|content`。哈希算法：内容去 `\r`、去行尾空白后做 xxhash32，取模 256 查一张 256 项字典出两位码；含字母/数字的行种子为 0，**全空白行用行号做种子**（不同位置的空行锚不同，replace 空行不撞锚）。另有 legacy 变体（剥全部空白）兼容旧锚。
+- 编辑操作三种：`replace`（pos 或 pos+end 区间）、`append`（带 pos 是插到该行后，不带是文件尾）、`prepend`（带 pos 是插到该行前，不带是文件头）。未知操作直接拒。
+- 应用管线：去重 → 按行号**从尾到头**排序（行号在应用中不失效）→ **整批验锚**（行号越界或哈希对不上当前内容 = 视图过期，抛 HashlineMismatchError，一行不改）→ 区间重叠检出 → 应用并统计 noop。
+- 配套：autocorrect（剥模型复述时带出的前缀/缩进/回声）、统一 diff 生成、200 行/64KB 分块渲染。
+
+**tool_call / tool 结果修复**：
+- tool-pair-validator 的 tool-result-repair：扫消息里「有调用没结果」的悬空工具部分，补成终态 error（`[Tool execution was interrupted before it produced output]`），让转录重新配对——修复的是**会话状态**，不是 JSON 语法。
+- 我们落地的「畸形 tool_call 修复」是这条思路在参数面的推广：模型的参数 JSON 带伤（围栏/散文/尾逗号/单引号/类型错）时先走确定性修复管线再判死活，每步记账，修不好 fail-closed 不靠猜。
+
+**对我们的启发**：模型输出是「永远可能带伤的输入」，容错层的位置在解析与执行之间；修复必须确定性 + 可审计，任何「让模型自己再猜一次」的修法都是把伤口往后挪。

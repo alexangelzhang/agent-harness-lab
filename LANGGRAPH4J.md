@@ -42,6 +42,7 @@
 | 11-01 | 生产化三缺口（2~4） | 库形态：仓库分模块——`core/`=库 `agent-core`（121 个类，语义化版本，铁律 core 不依赖 verify 模块，编译即验证），`verify/`=52 个场景（exec executions 随迁），`scripts/dev.sh <id>` 一条命令（装 parent+core 再 exec），等价 `mvn -q exec:java@<id> -pl verify`；配置管理：`harness.config.AgentConfig` 统一装配（LLM_API_KEY/CHAT_BASE/MODEL/AGENT_RUNS_DIR/AGENT_RULES_DIR，默认值+requireApiKey 启动校验+from(Map) 注入式），JdkHttpLlm/LangChain4jLlm/WebSearchLlm 与全部场景横幅直读已收敛；状态存储：`RunStore` 硬化——跨进程文件锁（FileChannel.lock）、超 8MB 轮转进 archive/、留最近 5 份归档、坏行跳过告警不拖垮读取，临时验证程序 8/8 实测（轮转顺序保持/坏行容忍/保留上限/clear 连归档清），@topology 写账 + @report 读账回归正常 |
 | 11-01 | Anthropic 折叠 subagent 研读落地 | `FoldEvalScenario`（`@foldeval`，eval 包）同一组 Golden Examples 跑 Subagent 分派版 vs 折回主 Loop 版（Skill 注入 + 工具表）各 2 遍——复刻原文客服失败案例：订单题折叠版第 1 遍漏调 query_shipping 从过变挂（1/2），简单题无损且平均调用严格更少；`SkillDoctorScenario`（`@skilldoctor`，harness.skills 包）技能库体检——使用频率（僵尸/低频）+ promptSnippet 3-gram Jaccard 重复度 + trigger 撞车三维度出膨胀候选清单；真实对照组 `RealFoldEvalScenario`（`@realfoldeval`）跑出剧本给不了的教训：prompt 没写协议说明时真实模型 6/6 遍全程自然语言、一轮 Action 不吐（教协议前别谈行为），补齐后 6/6 全走对；`ProtocolProbe`（`harness.probe` 包，`@protocolprobe`）协议自检探针把教训固化成真实实验前置预检——一次最小调用确认模型会吐协议行，requireOrExit 硬闸门 fail fast 不烧额度，支持自定义协议行 pattern（multiagent 分派协议经 `rosterProtocol` 接入，探针 prompt 没给专员名单时真实模型真会自造名字，第一版实测命中），已接入 realfoldeval / real / realadvanced×2 / supervisorreal / topologyreal 并逐一真实回归；见 docs/anthropic_fold_subagents.md |
 | 11-05 | Kibitzer 记忆侧车 | OmO（oh-my-openagent）研读落地：新子包 `harness.memory.kibitzer`——`KibitzerEvent`（事件进侧车前截断 + secret 脱敏）、`MemoryReader`（只读视图，零写入是编译期事实不是约定）、`Kibitzer`（唤醒闸门：触到未判定记忆才花裁判模型调用；每 wake 8 次只读自证预算；唯一动作 nudge；裁判故障退避不误判；已投递/已拒绝清单重播种）——召回之后注入之前的常驻裁判，与同步 RecallPipeline 互补；场景 `@kibitzer` 两幕全断言——见 docs/omo_orchestration_kibitzer.md |
+| 11-05 | 容错层 | OmO 容错层落地进 `harness.toolbase`：`HashLineEditor` 哈希锚定编辑（`行号#哈希|内容` 渲染、FNV-1a 取模出锚、全空白行行号做种子、整批验锚原子拒绝、区间重叠应用前检出、从尾到头应用行号不失效）、`ToolCallRepairer` 畸形 tool_call 先修再判（去围栏/剥散文/尾逗号/单引号/按契约类型矫正，逐条记账可审计，缺必填 fail-closed 不靠猜）——场景 `@faulttolerance` 两幕全断言 |
 
 一句话：模式层（九大模式）→ 载体层（手写/状态图/原语/动态工作流，可对比选型）
 → 治理层（预算/档案/网关/审批/蒸馏/记忆——写回有闸门、遗忘在岗、五维可量）
@@ -50,7 +51,7 @@
 ## 运行
 
 仓库分两模块（2026-11-01 起）：`core/`=库 `agent-core`（语义化版本，生产可用），
-`verify/`=54 个场景（core 的可执行规约）。以下命令从仓库根跑，
+`verify/`=55 个场景（core 的可执行规约）。以下命令从仓库根跑，
 `scripts/dev.sh <id>` 与 `mvn -q exec:java@<id> -pl verify` 等价
 （前者自动先装 parent+core；首次手动跑先 `mvn -q install -N && mvn -q install -pl core`）：
 
@@ -696,6 +697,19 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
   pending 等管理员）；WorkspaceBootstrap 统一装配，入口再多装配不漂移。
   场景（`mvn exec:java@toolbase`）：壳拦权限、挂审批、放行三步走 +
   未注册 DENY + ACL 四连 + 两入口一致。
+- `HashLineEditor` / `ToolCallRepairer`（`harness.toolbase` 包，
+  2026-11-05，OmO 容错层研读落地）：模型输出是「永远可能带伤的
+  输入」，容错层坐在解析与执行之间。HashLineEditor 哈希锚定编辑：
+  渲染给模型的是 `行号#哈希|内容`，编辑引用锚不复述原文；落盘前
+  整批验锚——行号越界或锚对不上当前内容（视图过期）整批拒绝、
+  原文一个字符不动；REPLACE 区间重叠应用前检出；多处编辑从尾到
+  头应用，行号不失效；全空白行用行号做种子，改空行不撞锚。
+  ToolCallRepairer 畸形 tool_call 先修再判：去围栏 → 剥散文 →
+  尾逗号/单引号语法修补 → 按 SchemaTool 契约做类型矫正
+  （"42" → 42）→ 契约校验；每步修复逐条记账可审计，契约外的键
+  丢掉，缺必填 fail-closed——绝不靠猜补齐。场景
+  （`mvn exec:java@faulttolerance`）：验锚/拒过期/拒重叠/空行锚 +
+  修好带伤调用/缺必填 fail-closed/纯散文救不回 两幕。
 - `SkillWatcher`（`harness.skills` 包，2026-10-31，尼恩「技能注入」链路
   的单进程版）：技能热刷新。本地目录就是 Manager→Worker 的管道，
   文件名 → mtime+size 指纹（ETag 替身）轮询，新增/变更即注册或重载，

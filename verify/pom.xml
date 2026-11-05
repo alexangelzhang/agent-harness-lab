@@ -225,6 +225,12 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <id>faulttolerance</id>
+                        <configuration>
+                            <mainClass>com.example.harness.toolbase.FaultToleranceScenario</mainClass>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>hotreload</id>
                         <configuration>
                             <mainClass>com.example.harness.skills.SkillHotReloadScenario</mainClass>
