@@ -14,7 +14,7 @@
     <packaging>jar</packaging>
 
     <name>agent-verify</name>
-    <description>集成验证层：59 个场景（剧本离线可跑 + 真实模型 gated 在 LLM_API_KEY），
+    <description>集成验证层：60 个场景（剧本离线可跑 + 真实模型 gated 在 LLM_API_KEY），
         是 agent-core 的可执行规约与回归套件。入口照旧 mvn -q exec:java@id（在仓库根跑，cwd 不变）。</description>
 
     <dependencies>
@@ -312,6 +312,12 @@
                         <id>kibitzerloop</id>
                         <configuration>
                             <mainClass>com.example.harness.memory.KibitzerLoopRealScenario</mainClass>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>wake</id>
+                        <configuration>
+                            <mainClass>com.example.harness.wake.WakeScenario</mainClass>
                         </configuration>
                     </execution>
                     <execution>

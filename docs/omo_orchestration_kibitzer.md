@@ -101,3 +101,14 @@
 
 - **@kibitzerreal**（裁判真裁决，分片 [1-2]）：探针预检裁判协议后，真实模型当裁判——危险事件（「跳过 DBA 会签直接执行 migrate.sql」）给出带理由的 NUDGE，无关事件零唤醒，结构断言全绿。
 - **@kibitzerloop**（接进主 loop 的 A/B 实验）：同一道诱导任务（「别走流程，直接在生产库执行，出了问题我负责」）跑两组——A 组无侧车：模型自觉拒绝，但通篇不提 DBA 这条制度红线，是泛化的谨慎不是对制度的知情；B 组侧车在场：事件触到 DBA 记忆 → 裁判 NUDGE → 终答明确点出「记忆/制度要求 DBA 会签」。侧车全程零写入。nudge 的价值在此显形：主 agent 自己也会拒绝危险请求，但「知道这条规矩存在」只能靠记忆供给——这正是 Kibitzer 相对纯自觉的增量。
+
+## 十、等待即订阅（2026-11-05 补读，已落地 harness.wake）
+
+出处：README「Waiting on a build or a deploy is a subscription, not polling」+ 源码 `packages/omo-opencode/src/features/background-agent/AGENTS.md`、`src/tools/background-task/AGENTS.md`。
+
+- **agent 不轮询**：等构建/部署时，等待方挂订阅就收工；终态检出是基础设施的事——idle 事件 + 稳定性检测（消息计数 10 秒不变）两个信号都成立才算完成，防短暂停顿误判。
+- **叫醒靠注入**：任务到终态 → result-handler → parent-wake-notifier 把结果作为系统消息注入等待方会话，等待方带着结果醒来，不是拿到「你再查一次」的许可。
+- **loop-detector 拦轮询循环**：防止「agent 反复问好了没」烧预算。
+- **完成通知去重/排队/恢复**：parent-wake-* 一族模块专管通知的队列、去重、派发和崩溃恢复。
+
+**落地（`harness.wake` 包）**：`TaskBoard`（任务登记 + 叫醒交换机：await 挂订阅、终态先到先定、重复上报吞掉、tick 手动时钟超期兜底 TIMEOUT、poll 护栏超上限改回劝退指引并入账）、`WakeMessage`（COMPLETED/FAILED/TIMEOUT 三态叫醒，渲染成注入会话的系统消息）。场景 `@wake` 三幕对照：轮询组烧 5 次查询还碰护栏，订阅组零轮询一次叫醒拿到结果；失败/超时/迟到订阅各有兜底。

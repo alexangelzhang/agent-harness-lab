@@ -110,7 +110,7 @@ core/src/main/java/com/example/    # agent-core：库（生产可用，语义化
                                 # / probe / redteam / routing / sandbox / security
                                 # / sensor / skills / telemetry / template / toolbase
 
-verify/src/main/java/com/example/    # agent-verify：59 个场景 = core 的可执行规约与回归套件
+verify/src/main/java/com/example/    # agent-verify：60 个场景 = core 的可执行规约与回归套件
 └── （与 core 同包结构，只放 *Scenario / PatternRunner / LoopBenchmark；
     mvn exec:java@<id> 入口全在这里登记）
 ```

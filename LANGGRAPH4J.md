@@ -45,6 +45,7 @@
 | 11-05 | 容错层 | OmO 容错层落地进 `harness.toolbase`：`HashLineEditor` 哈希锚定编辑（`行号#哈希|内容` 渲染、FNV-1a 取模出锚、全空白行行号做种子、整批验锚原子拒绝、区间重叠应用前检出、从尾到头应用行号不失效）、`ToolCallRepairer` 畸形 tool_call 先修再判（去围栏/剥散文/尾逗号/单引号/按契约类型矫正，逐条记账可审计，缺必填 fail-closed 不靠猜）——场景 `@faulttolerance` 两幕全断言 |
 | 11-05 | 纪律层 | OmO 纪律层落地进 `harness.planning`：`TodoEnforcer`（清单没勾完整轮无进展就注入拽回提示，连续空转升级语气、到上限闭嘴转人工，一有进展计数清零）、`GoalAudit`（会话级目标 opt-in；收工不由 agent 自称，裁判模型对着目标审证据，审不过注入续跑提示、上限耗尽放行但记未竟；审计员故障单独计数不占预算——没审过的收工不放行）——场景 `@discipline` 两幕全断言 |
 | 11-05 | Category 路由 + fallback 链 | OmO 模型路由落地进 `harness.routing`：`CategoryRouter`——委派写意图（quick/deep/……）不写模型名，每个 category 挂 provider 优先级链；选档跳过断供 provider，运行中炸了降级重试且每跳记尝试史，链耗尽 fail-closed；每档钉 prompt 预设（MECHANISTIC/PRINCIPLED），换档换说法——场景 `@categoryrouting` 两幕全断言 |
+| 11-05 | 等待即订阅 | OmO「waiting is a subscription, not polling」落地：新子包 `harness.wake`——`TaskBoard`（任务登记 + 叫醒交换机：await 挂订阅零轮询、终态先到先定、重复上报吞掉、tick 手动时钟超期兜底、poll 护栏超上限改回劝退指引并入账，对应 OmO 的 loop-detector）、`WakeMessage`（COMPLETED/FAILED/TIMEOUT 三态叫醒渲染成注入会话的系统消息，叫醒带结果本体不是「再查一次」的许可）——场景 `@wake` 三幕对照：轮询组烧 5 次查询 2 次碰护栏 vs 订阅组零轮询一次叫醒，失败/超时/迟到订阅各有兜底 |
 
 一句话：模式层（九大模式）→ 载体层（手写/状态图/原语/动态工作流，可对比选型）
 → 治理层（预算/档案/网关/审批/蒸馏/记忆——写回有闸门、遗忘在岗、五维可量）
@@ -53,7 +54,7 @@
 ## 运行
 
 仓库分两模块（2026-11-01 起）：`core/`=库 `agent-core`（语义化版本，生产可用），
-`verify/`=59 个场景（core 的可执行规约）。以下命令从仓库根跑，
+`verify/`=60 个场景（core 的可执行规约）。以下命令从仓库根跑，
 `scripts/dev.sh <id>` 与 `mvn -q exec:java@<id> -pl verify` 等价
 （前者自动先装 parent+core；首次手动跑先 `mvn -q install -N && mvn -q install -pl core`）：
 
@@ -742,6 +743,17 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
   丢掉，缺必填 fail-closed——绝不靠猜补齐。场景
   （`mvn exec:java@faulttolerance`）：验锚/拒过期/拒重叠/空行锚 +
   修好带伤调用/缺必填 fail-closed/纯散文救不回 两幕。
+- `TaskBoard` / `WakeMessage`（`harness.wake` 包，2026-11-05，OmO
+  「等待即订阅」研读落地）：等构建/部署是挂订阅不是轮询。等待方
+  `await` 挂上订阅就收工，任务终态由基础设施检出后把
+  `WakeMessage`（COMPLETED/FAILED/TIMEOUT 三态，渲染成系统消息）
+  恰好一次推进收件箱——叫醒带结果本体，不是「你再查一次」的许可；
+  终态先到先定，重复上报吞掉；手动 tick 时钟，超期仍 RUNNING 兜底
+  TIMEOUT 叫醒，失败也叫醒，终态后挂的订阅立即补投；`poll` 是留给
+  「实在要查」的门，按任务计数，超上限改回劝退指引并入账——对应
+  OmO 的 loop-detector，轮询烧的是 LLM 轮次。场景
+  （`mvn exec:java@wake`）：轮询组烧 5 次查询 2 次碰护栏 vs 订阅组
+  零轮询一次叫醒 + 失败/超时/迟到订阅兜底 三幕。
 - `SkillWatcher`（`harness.skills` 包，2026-10-31，尼恩「技能注入」链路
   的单进程版）：技能热刷新。本地目录就是 Manager→Worker 的管道，
   文件名 → mtime+size 指纹（ETag 替身）轮询，新增/变更即注册或重载，
