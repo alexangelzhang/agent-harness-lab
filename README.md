@@ -13,16 +13,17 @@
 |------|-----|------|
 | 编排模式 | `com.example.agent`（手写版）、`com.example.langgraph4j.patterns`（状态图版） | 九大模式，逐行对照 |
 | 运行载体 | `agent` 手写 / `langgraph4j` 状态图 / `agentloop` 原语 loop / `workflow` 动态工作流 | 同一剧本可比选型（loopbench） |
-| 治理层 | `com.example.harness` | 预算 / 审批 / 工具网关 / 凭据 / 沙箱 / 注入防线 / 路径验证 / 磁盘 checkpoint / 失败归因 / 限流 / 可观测 / 红队；记忆系统（三路召回、写回闸门、遗忘、五维评测）与情境记忆；Sensor 反馈层；Harness 模板；技能与事件总线；运行档案 + 报表 + 一键外循环 |
+| 治理层 | `com.example.harness` | 预算 / 审批 / 工具网关 / 凭据 / 沙箱 / 注入防线 / 路径验证 / 磁盘 checkpoint / 失败归因 / 限流 / 可观测 / 红队；记忆系统（三路召回、写回闸门、遗忘、五维评测）与情境记忆、Kibitzer 只读侧车（召回后注入前的常驻裁判）；Sensor 反馈层；Harness 模板；技能与事件总线；运行档案 + 报表 + 一键外循环；模型容错层（哈希锚定编辑、畸形 tool_call 修复）与 AI 腔注释护栏；纪律层（Todo 拽回、Goal 完成审计）；路由双件（任务分档 + 工种链降级）；等待即订阅的任务板 |
 | 动态工作流 | `com.example.workflow` | Claude Code「动态 harness」六模式的 Java 版 `agent()`/`parallel()`，预算与留痕已接治理层 |
-| 多 Agent 拓扑 | `com.example.multiagent` | 四种组织形式各归其位（Workflow/Supervisor/Hierarchical/Swarm）+ 委派护栏 + 选型决策树，默认立场是不拆；生产深化：Supervisor 并行 fan-out（并发上限 + 故障隔离）、Swarm 整轮时间盒 |
+| 多 Agent 拓扑 | `com.example.multiagent` | 四种组织形式各归其位（Workflow/Supervisor/Hierarchical/Swarm）+ 委派护栏 + 选型决策树，默认立场是不拆；生产深化：Supervisor 并行 fan-out（并发上限 + 故障隔离）、Swarm 整轮时间盒；curated 只读专家（fresh 会话 + 工具收窄 + 便宜档）与 Team Mode 横向通信（共享信箱 + 共享任务清单 + 一圈护栏） |
 
 文档地图：
 
 - [LANGGRAPH4J.md](LANGGRAPH4J.md)——主文档：图版与手写版对照、真实模型踩坑、评估、治理层、动态工作流，每一节都有运行入口；
 - [AGENT_DESIGN_PATTERNS_REPORT.md](AGENT_DESIGN_PATTERNS_REPORT.md)——第一阶段（九大模式手写版 + 状态图版）的总结报告，历史文献定位；
 - [docs/](docs/)——演进过程中研读的文章存档（动态工作流、Harness 工程、上下文工程、
-  Vercel Academy 编码 Agent Harness 教程对标等）。
+  Vercel Academy 编码 Agent Harness 教程对标、OmO oh-my-openagent 编排机制研读——
+  八连落地的机制浓缩与对照结论都在里面）。
 
 ## 模式总览（起点）
 
@@ -50,7 +51,7 @@ STORM = 规划(大纲) + 工具调研 + 写作 的内容生成特化
 
 ## 运行
 
-两模块：`core/` 是库（`agent-core`，语义化版本，生产可用），`verify/` 是 58 个
+两模块：`core/` 是库（`agent-core`，语义化版本，生产可用），`verify/` 是 63 个
 场景（库的可执行规约）。命令从仓库根跑，统一入口 `scripts/dev.sh <id>`
 （自动先装 parent+core，改完 core 直接跑；等价 `mvn -q exec:java@<id> -pl verify`）。
 
@@ -62,12 +63,12 @@ scripts/dev.sh loopbench  # 四种运行载体同剧本对比
 scripts/dev.sh report     # 历次运行沉淀成一张报表
 ```
 
-其余四十多个入口不在这里罗列——每个 id 写在 [LANGGRAPH4J.md](LANGGRAPH4J.md)
+其余入口不在这里罗列——每个 id 写在 [LANGGRAPH4J.md](LANGGRAPH4J.md)
 对应能力的章节里，读到哪节跑哪节；全量 id 以 `verify/pom.xml` 的 exec
 executions 为准。
 
 剧本场景用 `ScriptedLlm` 假模型，离线可跑，完整打印控制流轨迹；真实模型
-对照组要 `KIMI_API_KEY`（见下节）。
+对照组要 `LLM_API_KEY`（旧名 `KIMI_API_KEY` 兼容，见下节）。
 
 ## 接入真实模型
 
@@ -102,6 +103,7 @@ core/src/main/java/com/example/    # agent-core：库（生产可用，语义化
 │   └── eval/                   # 轨迹级评估（Pass@k / 步数统计）
 ├── agentloop/                  # Agent loop 原语：行动→验收→带反馈重试
 ├── multiagent/                 # 四拓扑 + 委派护栏 + 选型决策 + 并行/时间盒
+│                               # + 只读专家（expert）与 Team Mode 黑板（team）
 ├── workflow/                   # 动态工作流：LLM 自己生成子 Agent 图
 └── harness/                    # 治理层：Budget / RunRecord+RunStore / ToolGate
                                 # / ApprovalPolicy / RuleDistiller 在包顶层，
@@ -109,6 +111,7 @@ core/src/main/java/com/example/    # agent-core：库（生产可用，语义化
                                 # / diagnostics / interaction / memory / planning
                                 # / probe / redteam / routing / sandbox / security
                                 # / sensor / skills / telemetry / template / toolbase
+                                # / wake（等待即订阅）/ multiagent（expert / team）
 
 verify/src/main/java/com/example/    # agent-verify：63 个场景 = core 的可执行规约与回归套件
 └── （与 core 同包结构，只放 *Scenario / PatternRunner / LoopBenchmark；

@@ -6,14 +6,22 @@ Agent 工程实验场（Java）：从《Agent 的九种设计模式》出发，�
 编排模式（手写版 + langgraph4j 状态图版）、四种运行载体（手写 / 状态图 /
 agentloop 原语 / workflow 动态工作流）、生产级治理层（harness 包）。
 治理层的版图：记忆系统（触发 → 三路召回 → 融合 → 写回有闸门 →
-遗忘在岗 → 五维 benchmark 出分 → 情境记忆）、Sensor 反馈层（计算/
-推断分野、修正指引回流、质量分层、转向台账）、Harness 模板（拓扑
-约定 + sensor 一捆 + 漂移检查）、加上预算/审批/凭据/注入防线/路径
-验证/失败归因——牛津《AI Agents: The Definitive Guide》12 章对标
-全闭环；多 Agent 拓扑（multiagent 包：四种组织形式 + 委派护栏 +
-选型决策树，默认立场是不拆；生产深化：并行 fan-out、整轮时间盒、
-LLM 流式输出含 SSE 与预算熔断）。剧本与真实模型双轨可跑。README 和
-LANGGRAPH4J.md 是理解全貌的两张地图，动代码前先读对应章节。
+遗忘在岗 → 五维 benchmark 出分 → 情境记忆 + Kibitzer 只读侧车
+当常驻裁判）、Sensor 反馈层（计算/推断分野、修正指引回流、质量
+分层、转向台账）、Harness 模板（拓扑约定 + sensor 一捆 + 漂移
+检查）、模型容错层（哈希锚定编辑 + 畸形 tool_call 先修再判）、
+纪律层（Todo 拽回 + Goal 完成审计）、路由双件（任务分档 + 工种
+链降级）、等待即订阅的任务板、AI 腔注释护栏，加上预算/审批/凭据/
+注入防线/路径验证/失败归因——牛津《AI Agents: The Definitive
+Guide》12 章对标全闭环；多 Agent 拓扑（multiagent 包：四种组织
+形式 + 委派护栏 + 选型决策树，默认立场是不拆；生产深化：并行
+fan-out、整轮时间盒、LLM 流式输出含 SSE 与预算熔断；harness.
+multiagent 下的 curated 只读专家与 Team Mode 横向通信：fresh
+会话隔离 + 工具收窄 + 共享信箱/任务清单 + parse 时准入硬拒）。
+以上治理层新能力多为 oh-my-openagent（OmO）研读落地，机制浓缩
+与对照结论见 docs/omo_orchestration_kibitzer.md。剧本与真实模型
+双轨可跑。README 和 LANGGRAPH4J.md 是理解全貌的两张地图，动代
+码前先读对应章节。
 
 ## 构建与运行
 
