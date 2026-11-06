@@ -112,3 +112,14 @@
 - **完成通知去重/排队/恢复**：parent-wake-* 一族模块专管通知的队列、去重、派发和崩溃恢复。
 
 **落地（`harness.wake` 包）**：`TaskBoard`（任务登记 + 叫醒交换机：await 挂订阅、终态先到先定、重复上报吞掉、tick 手动时钟超期兜底 TIMEOUT、poll 护栏超上限改回劝退指引并入账）、`WakeMessage`（COMPLETED/FAILED/TIMEOUT 三态叫醒，渲染成注入会话的系统消息）。场景 `@wake` 三幕对照：轮询组烧 5 次查询还碰护栏，订阅组零轮询一次叫醒拿到结果；失败/超时/迟到订阅各有兜底。
+
+## 十一、comment checker（2026-11-06 补读，已落地 harness.toolbase）
+
+出处：源码 `packages/comment-checker-core/AGENTS.md`、`packages/omo-opencode/src/hooks/comment-checker/AGENTS.md`、`packages/shared-skills/skills/remove-ai-slops/SKILL.md`。
+
+- **拦截点在落盘前**：挂在 write/edit 工具前后，对变更内容跑检查，检出 AI 腔注释就把这次工具调用打回（agent 收到带行号和类别的错误，修好再写）——不是提交后 review 再返工。
+- **拦什么**：复述代码的注释、空话副词（obviously/clearly/simply）、纯装饰分隔线、琐碎函数的 JSDoc、没下文的 TODO、与代码矛盾的注释。配套的 remove-ai-slops 技能管更大的面（防御性代码/死代码/垃圾测试等十类），但有一条铁律共通：**先锁行为（回归测试绿）再动刀**。
+- **逃生口**：行内 `// @allow`、文件头 `comment-checker-disable-file`。
+- **故障收敛**：checker 二进制炸了告警一次然后躺平，不拦写入链路；超时算「慢」不算「坏」。
+
+**落地（`harness.toolbase` 包）**：`SlopCommentChecker`（确定性模式库，不依赖外部二进制：FILLER 空话副词 / DECORATIVE_SEPARATOR 装饰线 / EMPTY_TODO 没下文的 TODO / ECHO_COMMENT 英文复述注释——注释词全部出现在下一行标识符词表里，先剥 the/of 等功能词；中文复述不做词面比对防误伤；行内 @allow-comment 与文件头 disable-file 两个逃生口）、`SlopWriteGuard`（落盘前闸门：ERROR 拦死、打回文本带行号+类别+原文，WARN 放行但带命中清单）。场景 `@commentcheck` 三幕：模式库逐项揪（行号类别对得上、逃生口放行）、写入链路拦-修-放、讲 WHY/工单链接/正则解释/BDD 标记不误伤。
