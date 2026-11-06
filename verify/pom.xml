@@ -14,7 +14,7 @@
     <packaging>jar</packaging>
 
     <name>agent-verify</name>
-    <description>集成验证层：62 个场景（剧本离线可跑 + 真实模型 gated 在 LLM_API_KEY），
+    <description>集成验证层：63 个场景（剧本离线可跑 + 真实模型 gated 在 LLM_API_KEY），
         是 agent-core 的可执行规约与回归套件。入口照旧 mvn -q exec:java@id（在仓库根跑，cwd 不变）。</description>
 
     <dependencies>
@@ -378,6 +378,12 @@
                         <id>expert</id>
                         <configuration>
                             <mainClass>com.example.harness.multiagent.expert.ExpertScenario</mainClass>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>team</id>
+                        <configuration>
+                            <mainClass>com.example.harness.multiagent.team.TeamScenario</mainClass>
                         </configuration>
                     </execution>
                     <execution>

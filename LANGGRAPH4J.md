@@ -48,6 +48,7 @@
 | 11-05 | 等待即订阅 | OmO「waiting is a subscription, not polling」落地：新子包 `harness.wake`——`TaskBoard`（任务登记 + 叫醒交换机：await 挂订阅零轮询、终态先到先定、重复上报吞掉、tick 手动时钟超期兜底、poll 护栏超上限改回劝退指引并入账，对应 OmO 的 loop-detector）、`WakeMessage`（COMPLETED/FAILED/TIMEOUT 三态叫醒渲染成注入会话的系统消息，叫醒带结果本体不是「再查一次」的许可）——场景 `@wake` 三幕对照：轮询组烧 5 次查询 2 次碰护栏 vs 订阅组零轮询一次叫醒，失败/超时/迟到订阅各有兜底 |
 | 11-06 | comment checker | OmO comment-checker 落地进 `harness.toolbase`：`SlopCommentChecker`（确定性模式库拦四类 AI 腔注释——FILLER 空话副词 / DECORATIVE_SEPARATOR 装饰线 / EMPTY_TODO 没下文 TODO / ECHO_COMMENT 英文复述注释，剥功能词后比对下一行标识符词表；中文复述不比对防误伤；@allow-comment 与 disable-file 逃生口）、`SlopWriteGuard`（落盘前闸门：ERROR 打回带行号+类别+原文，WARN 放行带清单——拦截点在落盘前不是提交后）——场景 `@commentcheck` 三幕全断言 |
 | 11-06 | curated 只读专家 | OmO 内置只读 agent 机制落地进 `harness.multiagent.expert`：`ToolPolicy`（deny-list 点名禁 write/edit/spawn 或 allow-list 全部禁掉只留 read，只读是配置不是自觉，放行/拦下入账）、`ExpertSession`（fresh 会话——上下文只有任务卡，主会话的计划/机密/闲聊不进专家世界；模型档钉在会话上）、`ExpertRegistry`（curated 名册 spawn 即装配；Team Mode 对只读专家硬拒带指路——进共享黑板只会看不能写是设计错误，领班走 task 委派）、`ExpertReport`（结论+审计轨迹+模型档）——场景 `@expert` 三幕全断言 |
+| 11-06 | Team Mode 横向通信 | OmO team-mode 落地进 `harness.multiagent.team`：`TeamMailbox`（共享信箱——点对点 + 广播 fan-out、fire-and-forget、payload cap 拒发、每轮消息预算耗尽拒发防陪跑，对应 Swarm maxHandoffs 教训）、`SharedTaskList`（共享任务清单——认领原子 PENDING→CLAIMED 只发生一次、谁认领谁完成，写密集互相覆盖的第一道闸）、`Team`（建队 parse 时全校验：超员拒、只读专家经 ExpertRegistry 硬拒指路 task 委派；队员再建队只拦不执行记账——no nested teams；requestShutdown/approveShutdown 只有领班能批；status() 一页汇总）——场景 `@team` 三幕全断言 |
 
 一句话：模式层（九大模式）→ 载体层（手写/状态图/原语/动态工作流，可对比选型）
 → 治理层（预算/档案/网关/审批/蒸馏/记忆——写回有闸门、遗忘在岗、五维可量）
@@ -56,7 +57,7 @@
 ## 运行
 
 仓库分两模块（2026-11-01 起）：`core/`=库 `agent-core`（语义化版本，生产可用），
-`verify/`=62 个场景（core 的可执行规约）。以下命令从仓库根跑，
+`verify/`=63 个场景（core 的可执行规约）。以下命令从仓库根跑，
 `scripts/dev.sh <id>` 与 `mvn -q exec:java@<id> -pl verify` 等价
 （前者自动先装 parent+core；首次手动跑先 `mvn -q install -N && mvn -q install -pl core`）：
 
@@ -780,6 +781,20 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
   task 委派、结果以报告回收。场景（`mvn exec:java@expert`）：
   隔离收窄 + allow-list 连 edit 也进不来 + 硬拒指路 +
   两家 FAST 档并行委派报告合并 三幕。
+- `TeamMailbox` / `SharedTaskList` / `Team`（`harness.multiagent.team`
+  包，2026-11-06，OmO Team Mode 研读落地）：横向通信的最小内核。
+  共享信箱：点对点 + 广播、fire-and-forget 收信方自己 poll、
+  payload cap 与每轮消息预算双 cap——预算耗尽拒发，防「一次诉求
+  传四五棒」的陪跑（Swarm maxHandoffs 的教训搬进黑板）；seq 记账
+  全队流量可查。共享任务清单：认领原子（PENDING→CLAIMED 只发生
+  一次，抢活被拒）、谁认领谁完成（替勾被拒）——写密集互相覆盖的
+  第一道闸。Team 是装配与护栏：建队 parse 时全校验（超员拒、
+  只读专家经 ExpertRegistry.isReadOnlyExpert 硬拒指路 task 委派，
+  拒在 parse 不在运行时炸）；memberCreateTeam 只拦不执行记账
+  （no nested teams——队员喊拉子队是绕圈前兆）；requestShutdown /
+  approveShutdown 只有领班能批；status() 一页汇总成员/任务三态/
+  信箱流量/预算余量/被拦台账。场景（`mvn exec:java@team`）：
+  黑板闭环 + 护栏四连 + 收工审批与一页对账 三幕。
 - `SkillWatcher`（`harness.skills` 包，2026-10-31，尼恩「技能注入」链路
   的单进程版）：技能热刷新。本地目录就是 Manager→Worker 的管道，
   文件名 → mtime+size 指纹（ETag 替身）轮询，新增/变更即注册或重载，

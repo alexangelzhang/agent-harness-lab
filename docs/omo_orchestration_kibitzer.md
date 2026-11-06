@@ -134,3 +134,16 @@
 - **Team Mode 硬拒只读专家**：TeamSpec parse 时直接拒，理由是只读专家进共享黑板只会看不能写，是设计错误；领班要用就走 task 委派、结果以报告回收。
 
 **落地（`harness.multiagent.expert` 包）**：`ToolPolicy`（deny-list / allow-list 两种只读档，放行与拦下都入账）、`ExpertSession`（fresh 会话：上下文只有任务卡、工具调用全过策略、模型档钉在会话上）、`ExpertRegistry`（curated 名册：explore/librarian/plan-reviewer/vision-looker 四家定义 spawn 即装配；teamVerdict 只读硬拒带指路理由）、`ExpertReport`（结论 + 读了什么 + 被拦了什么 + 模型档，一行摘要可审计）。场景 `@expert` 三幕：隔离与收窄（机密不进专家上下文、写与再委派拦下入账）、名册与 Team Mode（allow-list 连 edit 也进不来、硬拒指路）、并行委派回收（两家 FAST 档并行、报告合并进领班上下文）。
+
+## 十三、Team Mode 横向通信（2026-11-06 补读，已落地 harness.multiagent.team）
+
+出处：源码 `packages/omo-opencode/src/features/team-mode/AGENTS.md` + `packages/team-core`。
+
+- **默认关、开了守限额**：team_mode.enabled 是 gate；max_members、max_parallel_members、max_messages_per_run、max_wall_clock、max_member_turns 一整车刹车。12 个 team_* 工具只管四件事：生命周期、消息、任务、查询。
+- **共享 mailbox**：fire-and-forget + 收信方自己 poll；` * ` 广播全队；单条 payload cap + 每收件人 inbox cap；deferred ack（回执是单独一次调用，不阻塞发送）。
+- **共享任务清单**：create/claim/complete/delete，claim 用原子文件锁——并发认领安全。
+- **准入 parse 时拒**：eligible/conditional/hard-reject 三级，只读专家硬拒、理由指路 task 委派（上一条已落地）。
+- **no nested teams**：队员不许调 team_create，tool-gating 拦死。
+- **OmO 反模式清单**（照抄进本仓库教训栏）：不绕过 session-registry（spawn 竞态窗）；不带锁不写状态文件；不拿 delegate-task 冒充 team 工具；不许队员建队。
+
+**落地（`harness.multiagent.team` 包）**：`TeamMailbox`（点对点 + 广播 fan-out、payload cap 拒发、每轮消息预算耗尽拒发——防「一次诉求传四五棒」的陪跑，对应 Swarm maxHandoffs 教训；seq 记账）、`SharedTaskList`（认领原子：PENDING→CLAIMED 只发生一次；谁认领谁完成——写密集互相覆盖的第一道闸）、`Team`（建队 parse 时全校验：超员拒、只读专家经 ExpertRegistry.isReadOnlyExpert 硬拒指路 task 委派；memberCreateTeam 只拦不执行记账——队员喊拉子队是绕圈前兆；requestShutdown/approveShutdown 只有领班能批；status() 一页汇总成员/任务三态/信箱流量/预算余量/被拦台账）。场景 `@team` 三幕：黑板闭环（广播、抢活原子拒、替勾被拒）、护栏四连（parse 拒只读、超员拒、嵌套建队入账、payload 与预算双 cap）、生命周期（非领班批无效、一页状态数字对账）。

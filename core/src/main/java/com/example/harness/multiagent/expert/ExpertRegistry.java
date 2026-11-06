@@ -81,4 +81,10 @@ public final class ExpertRegistry {
         }
         return new TeamVerdict(true, name + " 可以当队友");
     }
+
+    /** 是不是登记在册的只读专家（Team Mode 准入判官用：未登记的名字不算）。 */
+    public boolean isReadOnlyExpert(String name) {
+        Definition def = definitions.get(name);
+        return def != null && def.policy().isReadOnly();
+    }
 }
