@@ -123,3 +123,14 @@
 - **故障收敛**：checker 二进制炸了告警一次然后躺平，不拦写入链路；超时算「慢」不算「坏」。
 
 **落地（`harness.toolbase` 包）**：`SlopCommentChecker`（确定性模式库，不依赖外部二进制：FILLER 空话副词 / DECORATIVE_SEPARATOR 装饰线 / EMPTY_TODO 没下文的 TODO / ECHO_COMMENT 英文复述注释——注释词全部出现在下一行标识符词表里，先剥 the/of 等功能词；中文复述不做词面比对防误伤；行内 @allow-comment 与文件头 disable-file 两个逃生口）、`SlopWriteGuard`（落盘前闸门：ERROR 拦死、打回文本带行号+类别+原文，WARN 放行但带命中清单）。场景 `@commentcheck` 三幕：模式库逐项揪（行号类别对得上、逃生口放行）、写入链路拦-修-放、讲 WHY/工单链接/正则解释/BDD 标记不误伤。
+
+## 十二、curated 只读专家（2026-11-06 补读，已落地 harness.multiagent.expert）
+
+出处：源码 `packages/omo-opencode/src/agents/AGENTS.md`（11 内置 agent 定义 + 工具禁用表）、`src/shared/agent-tool-restrictions.ts`。
+
+- **只读靠配置不靠自觉**：Oracle/Librarian/Explore 禁 write/edit/task/call_omo_agent；Multimodal-Looker 更狠——allow-list 全部禁掉只留 read。工具禁用表是 agent 定义的一部分。
+- **fresh session 隔离**：专家是独立 session，看不到主会话全文——主会话有计划有机密有几万 token 闲聊，全是噪声和泄露面。派单方挑好任务卡传进去。
+- **自带便宜模型链**：subagent 模式用自己的 fallback 链、不吃 UI 选的模型——检索/看图这类便宜活钉在 fast 档（gpt-6-luna / claude-haiku）。
+- **Team Mode 硬拒只读专家**：TeamSpec parse 时直接拒，理由是只读专家进共享黑板只会看不能写，是设计错误；领班要用就走 task 委派、结果以报告回收。
+
+**落地（`harness.multiagent.expert` 包）**：`ToolPolicy`（deny-list / allow-list 两种只读档，放行与拦下都入账）、`ExpertSession`（fresh 会话：上下文只有任务卡、工具调用全过策略、模型档钉在会话上）、`ExpertRegistry`（curated 名册：explore/librarian/plan-reviewer/vision-looker 四家定义 spawn 即装配；teamVerdict 只读硬拒带指路理由）、`ExpertReport`（结论 + 读了什么 + 被拦了什么 + 模型档，一行摘要可审计）。场景 `@expert` 三幕：隔离与收窄（机密不进专家上下文、写与再委派拦下入账）、名册与 Team Mode（allow-list 连 edit 也进不来、硬拒指路）、并行委派回收（两家 FAST 档并行、报告合并进领班上下文）。
