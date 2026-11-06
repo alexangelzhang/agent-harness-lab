@@ -14,7 +14,7 @@
     <packaging>jar</packaging>
 
     <name>agent-verify</name>
-    <description>集成验证层：63 个场景（剧本离线可跑 + 真实模型 gated 在 LLM_API_KEY），
+    <description>集成验证层：68 个场景（剧本离线可跑 + 真实模型 gated 在 LLM_API_KEY），
         是 agent-core 的可执行规约与回归套件。入口照旧 mvn -q exec:java@id（在仓库根跑，cwd 不变）。</description>
 
     <dependencies>
@@ -49,7 +49,7 @@
                 <configuration>
                     <mainClass>com.example.agent.PatternRunner</mainClass>
                 </configuration>
-                <executions>
+                                <executions>
                     <execution>
                         <id>graph</id>
                         <configuration>
@@ -231,9 +231,21 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <id>faulttolerancereal</id>
+                        <configuration>
+                            <mainClass>com.example.harness.toolbase.FaultToleranceRealScenario</mainClass>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>commentcheck</id>
                         <configuration>
                             <mainClass>com.example.harness.toolbase.SlopCommentScenario</mainClass>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>commentcheckreal</id>
+                        <configuration>
+                            <mainClass>com.example.harness.toolbase.CommentCheckRealScenario</mainClass>
                         </configuration>
                     </execution>
                     <execution>
@@ -327,6 +339,12 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <id>wakereal</id>
+                        <configuration>
+                            <mainClass>com.example.harness.wake.WakeRealScenario</mainClass>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>sensor</id>
                         <configuration>
                             <mainClass>com.example.harness.sensor.SensorScenario</mainClass>
@@ -381,9 +399,21 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <id>expertreal</id>
+                        <configuration>
+                            <mainClass>com.example.harness.multiagent.expert.ExpertRealScenario</mainClass>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>team</id>
                         <configuration>
                             <mainClass>com.example.harness.multiagent.team.TeamScenario</mainClass>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>teamreal</id>
+                        <configuration>
+                            <mainClass>com.example.harness.multiagent.team.TeamRealScenario</mainClass>
                         </configuration>
                     </execution>
                     <execution>

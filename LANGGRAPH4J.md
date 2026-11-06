@@ -42,13 +42,13 @@
 | 11-01 | 生产化三缺口（2~4） | 库形态：仓库分模块——`core/`=库 `agent-core`（121 个类，语义化版本，铁律 core 不依赖 verify 模块，编译即验证），`verify/`=52 个场景（exec executions 随迁），`scripts/dev.sh <id>` 一条命令（装 parent+core 再 exec），等价 `mvn -q exec:java@<id> -pl verify`；配置管理：`harness.config.AgentConfig` 统一装配（LLM_API_KEY/CHAT_BASE/MODEL/AGENT_RUNS_DIR/AGENT_RULES_DIR，默认值+requireApiKey 启动校验+from(Map) 注入式），JdkHttpLlm/LangChain4jLlm/WebSearchLlm 与全部场景横幅直读已收敛；状态存储：`RunStore` 硬化——跨进程文件锁（FileChannel.lock）、超 8MB 轮转进 archive/、留最近 5 份归档、坏行跳过告警不拖垮读取，临时验证程序 8/8 实测（轮转顺序保持/坏行容忍/保留上限/clear 连归档清），@topology 写账 + @report 读账回归正常 |
 | 11-01 | Anthropic 折叠 subagent 研读落地 | `FoldEvalScenario`（`@foldeval`，eval 包）同一组 Golden Examples 跑 Subagent 分派版 vs 折回主 Loop 版（Skill 注入 + 工具表）各 2 遍——复刻原文客服失败案例：订单题折叠版第 1 遍漏调 query_shipping 从过变挂（1/2），简单题无损且平均调用严格更少；`SkillDoctorScenario`（`@skilldoctor`，harness.skills 包）技能库体检——使用频率（僵尸/低频）+ promptSnippet 3-gram Jaccard 重复度 + trigger 撞车三维度出膨胀候选清单；真实对照组 `RealFoldEvalScenario`（`@realfoldeval`）跑出剧本给不了的教训：prompt 没写协议说明时真实模型 6/6 遍全程自然语言、一轮 Action 不吐（教协议前别谈行为），补齐后 6/6 全走对；`ProtocolProbe`（`harness.probe` 包，`@protocolprobe`）协议自检探针把教训固化成真实实验前置预检——一次最小调用确认模型会吐协议行，requireOrExit 硬闸门 fail fast 不烧额度，支持自定义协议行 pattern（multiagent 分派协议经 `rosterProtocol` 接入，探针 prompt 没给专员名单时真实模型真会自造名字，第一版实测命中），已接入 realfoldeval / real / realadvanced×2 / supervisorreal / topologyreal 并逐一真实回归；见 docs/anthropic_fold_subagents.md |
 | 11-05 | Kibitzer 记忆侧车 | OmO（oh-my-openagent）研读落地：新子包 `harness.memory.kibitzer`——`KibitzerEvent`（事件进侧车前截断 + secret 脱敏）、`MemoryReader`（只读视图，零写入是编译期事实不是约定）、`Kibitzer`（唤醒闸门：触到未判定记忆才花裁判模型调用；每 wake 8 次只读自证预算；唯一动作 nudge；裁判故障退避不误判；已投递/已拒绝清单重播种）——召回之后注入之前的常驻裁判，与同步 RecallPipeline 互补；场景 `@kibitzer` 两幕全断言；真实对照 `@kibitzerreal`（裁判真裁决）+ `@kibitzerloop`（接进主 loop 的 A/B 实验：无侧车组不提 DBA 红线、带 nudge 组点出 DBA 会签）——见 docs/omo_orchestration_kibitzer.md |
-| 11-05 | 容错层 | OmO 容错层落地进 `harness.toolbase`：`HashLineEditor` 哈希锚定编辑（`行号#哈希|内容` 渲染、FNV-1a 取模出锚、全空白行行号做种子、整批验锚原子拒绝、区间重叠应用前检出、从尾到头应用行号不失效）、`ToolCallRepairer` 畸形 tool_call 先修再判（去围栏/剥散文/尾逗号/单引号/按契约类型矫正，逐条记账可审计，缺必填 fail-closed 不靠猜）——场景 `@faulttolerance` 两幕全断言 |
+| 11-05 | 容错层 | OmO 容错层落地进 `harness.toolbase`：`HashLineEditor` 哈希锚定编辑（`行号#哈希|内容` 渲染、FNV-1a 取模出锚、全空白行行号做种子、整批验锚原子拒绝、区间重叠应用前检出、从尾到头应用行号不失效）、`ToolCallRepairer` 畸形 tool_call 先修再判（去围栏/剥散文/尾逗号/单引号/按契约类型矫正，逐条记账可审计，缺必填 fail-closed 不靠猜）——场景 `@faulttolerance` 两幕全断言；真实冒烟 `@faulttolerancereal`：真实模型对带锚渲染吐编辑指令——抄错锚被原子拒、原文无损（带锚的意义被真实翻车验证）或干净应用，双结局都过 |
 | 11-05 | 纪律层 | OmO 纪律层落地进 `harness.planning`：`TodoEnforcer`（清单没勾完整轮无进展就注入拽回提示，连续空转升级语气、到上限闭嘴转人工，一有进展计数清零）、`GoalAudit`（会话级目标 opt-in；收工不由 agent 自称，裁判模型对着目标审证据，审不过注入续跑提示、上限耗尽放行但记未竟；审计员故障单独计数不占预算——没审过的收工不放行）——场景 `@discipline` 两幕全断言 |
 | 11-05 | Category 路由 + fallback 链 | OmO 模型路由落地进 `harness.routing`：`CategoryRouter`——委派写意图（quick/deep/……）不写模型名，每个 category 挂 provider 优先级链；选档跳过断供 provider，运行中炸了降级重试且每跳记尝试史，链耗尽 fail-closed；每档钉 prompt 预设（MECHANISTIC/PRINCIPLED），换档换说法——场景 `@categoryrouting` 两幕全断言 |
-| 11-05 | 等待即订阅 | OmO「waiting is a subscription, not polling」落地：新子包 `harness.wake`——`TaskBoard`（任务登记 + 叫醒交换机：await 挂订阅零轮询、终态先到先定、重复上报吞掉、tick 手动时钟超期兜底、poll 护栏超上限改回劝退指引并入账，对应 OmO 的 loop-detector）、`WakeMessage`（COMPLETED/FAILED/TIMEOUT 三态叫醒渲染成注入会话的系统消息，叫醒带结果本体不是「再查一次」的许可）——场景 `@wake` 三幕对照：轮询组烧 5 次查询 2 次碰护栏 vs 订阅组零轮询一次叫醒，失败/超时/迟到订阅各有兜底 |
-| 11-06 | comment checker | OmO comment-checker 落地进 `harness.toolbase`：`SlopCommentChecker`（确定性模式库拦四类 AI 腔注释——FILLER 空话副词 / DECORATIVE_SEPARATOR 装饰线 / EMPTY_TODO 没下文 TODO / ECHO_COMMENT 英文复述注释，剥功能词后比对下一行标识符词表；中文复述不比对防误伤；@allow-comment 与 disable-file 逃生口）、`SlopWriteGuard`（落盘前闸门：ERROR 打回带行号+类别+原文，WARN 放行带清单——拦截点在落盘前不是提交后）——场景 `@commentcheck` 三幕全断言 |
-| 11-06 | curated 只读专家 | OmO 内置只读 agent 机制落地进 `harness.multiagent.expert`：`ToolPolicy`（deny-list 点名禁 write/edit/spawn 或 allow-list 全部禁掉只留 read，只读是配置不是自觉，放行/拦下入账）、`ExpertSession`（fresh 会话——上下文只有任务卡，主会话的计划/机密/闲聊不进专家世界；模型档钉在会话上）、`ExpertRegistry`（curated 名册 spawn 即装配；Team Mode 对只读专家硬拒带指路——进共享黑板只会看不能写是设计错误，领班走 task 委派）、`ExpertReport`（结论+审计轨迹+模型档）——场景 `@expert` 三幕全断言 |
-| 11-06 | Team Mode 横向通信 | OmO team-mode 落地进 `harness.multiagent.team`：`TeamMailbox`（共享信箱——点对点 + 广播 fan-out、fire-and-forget、payload cap 拒发、每轮消息预算耗尽拒发防陪跑，对应 Swarm maxHandoffs 教训）、`SharedTaskList`（共享任务清单——认领原子 PENDING→CLAIMED 只发生一次、谁认领谁完成，写密集互相覆盖的第一道闸）、`Team`（建队 parse 时全校验：超员拒、只读专家经 ExpertRegistry 硬拒指路 task 委派；队员再建队只拦不执行记账——no nested teams；requestShutdown/approveShutdown 只有领班能批；status() 一页汇总）——场景 `@team` 三幕全断言 |
+| 11-05 | 等待即订阅 | OmO「waiting is a subscription, not polling」落地：新子包 `harness.wake`——`TaskBoard`（任务登记 + 叫醒交换机：await 挂订阅零轮询、终态先到先定、重复上报吞掉、tick 手动时钟超期兜底、poll 护栏超上限改回劝退指引并入账，对应 OmO 的 loop-detector）、`WakeMessage`（COMPLETED/FAILED/TIMEOUT 三态叫醒渲染成注入会话的系统消息，叫醒带结果本体不是「再查一次」的许可）——场景 `@wake` 三幕对照：轮询组烧 5 次查询 2 次碰护栏 vs 订阅组零轮询一次叫醒，失败/超时/迟到订阅各有兜底；真实冒烟 `@wakereal`：WakeMessage 注入后真实主 agent 终答直接消费结果本体 |
+| 11-06 | comment checker | OmO comment-checker 落地进 `harness.toolbase`：`SlopCommentChecker`（确定性模式库拦四类 AI 腔注释——FILLER 空话副词 / DECORATIVE_SEPARATOR 装饰线 / EMPTY_TODO 没下文 TODO / ECHO_COMMENT 英文复述注释，剥功能词后比对下一行标识符词表；中文复述不比对防误伤；@allow-comment 与 disable-file 逃生口）、`SlopWriteGuard`（落盘前闸门：ERROR 打回带行号+类别+原文，WARN 放行带清单——拦截点在落盘前不是提交后）——场景 `@commentcheck` 三幕全断言；真实冒烟 `@commentcheckreal`：真实模型写注释过检查器，命中则 findings 回流重写一轮、干净如实记录 |
+| 11-06 | curated 只读专家 | OmO 内置只读 agent 机制落地进 `harness.multiagent.expert`：`ToolPolicy`（deny-list 点名禁 write/edit/spawn 或 allow-list 全部禁掉只留 read，只读是配置不是自觉，放行/拦下入账）、`ExpertSession`（fresh 会话——上下文只有任务卡，主会话的计划/机密/闲聊不进专家世界；模型档钉在会话上）、`ExpertRegistry`（curated 名册 spawn 即装配；Team Mode 对只读专家硬拒带指路——进共享黑板只会看不能写是设计错误，领班走 task 委派）、`ExpertReport`（结论+审计轨迹+模型档）——场景 `@expert` 三幕全断言；真实冒烟 `@expertreal`：真模型坐 explore 位，隔离/只读/FAST 档原样成立 |
+| 11-06 | Team Mode 横向通信 | OmO team-mode 落地进 `harness.multiagent.team`：`TeamMailbox`（共享信箱——点对点 + 广播 fan-out、fire-and-forget、payload cap 拒发、每轮消息预算耗尽拒发防陪跑，对应 Swarm maxHandoffs 教训）、`SharedTaskList`（共享任务清单——认领原子 PENDING→CLAIMED 只发生一次、谁认领谁完成，写密集互相覆盖的第一道闸）、`Team`（建队 parse 时全校验：超员拒、只读专家经 ExpertRegistry 硬拒指路 task 委派；队员再建队只拦不执行记账——no nested teams；requestShutdown/approveShutdown 只有领班能批；status() 一页汇总）——场景 `@team` 三幕全断言；真实冒烟 `@teamreal`：真模型坐 builder 位按黑板协议回信，信箱闭环、一页对账 |
 
 一句话：模式层（九大模式）→ 载体层（手写/状态图/原语/动态工作流，可对比选型）
 → 治理层（预算/档案/网关/审批/蒸馏/记忆——写回有闸门、遗忘在岗、五维可量）
@@ -57,7 +57,7 @@
 ## 运行
 
 仓库分两模块（2026-11-01 起）：`core/`=库 `agent-core`（语义化版本，生产可用），
-`verify/`=63 个场景（core 的可执行规约）。以下命令从仓库根跑，
+`verify/`=68 个场景（core 的可执行规约）。以下命令从仓库根跑，
 `scripts/dev.sh <id>` 与 `mvn -q exec:java@<id> -pl verify` 等价
 （前者自动先装 parent+core；首次手动跑先 `mvn -q install -N && mvn -q install -pl core`）：
 
@@ -745,7 +745,11 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
   （"42" → 42）→ 契约校验；每步修复逐条记账可审计，契约外的键
   丢掉，缺必填 fail-closed——绝不靠猜补齐。场景
   （`mvn exec:java@faulttolerance`）：验锚/拒过期/拒重叠/空行锚 +
-  修好带伤调用/缺必填 fail-closed/纯散文救不回 两幕。
+  修好带伤调用/缺必填 fail-closed/纯散文救不回 两幕。真实冒烟
+  （`mvn exec:java@faulttolerancereal`，需 LLM_API_KEY）：真实模型对
+  带锚渲染吐编辑指令，输出必带伤——repair 接住、验锚裁决：抄错锚
+  被原子拒、原文一个字符没动（真实翻车坐实了带锚的意义），抄对则
+  干净应用，双结局都过。
 - `TaskBoard` / `WakeMessage`（`harness.wake` 包，2026-11-05，OmO
   「等待即订阅」研读落地）：等构建/部署是挂订阅不是轮询。等待方
   `await` 挂上订阅就收工，任务终态由基础设施检出后把
@@ -756,7 +760,10 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
   「实在要查」的门，按任务计数，超上限改回劝退指引并入账——对应
   OmO 的 loop-detector，轮询烧的是 LLM 轮次。场景
   （`mvn exec:java@wake`）：轮询组烧 5 次查询 2 次碰护栏 vs 订阅组
-  零轮询一次叫醒 + 失败/超时/迟到订阅兜底 三幕。
+  零轮询一次叫醒 + 失败/超时/迟到订阅兜底 三幕。真实冒烟
+  （`mvn exec:java@wakereal`，需 LLM_API_KEY）：WakeMessage 注入真实
+  主 agent 的会话，终答直接消费结果本体（img-9f3a 在场）——
+  「叫醒带答案」对真实模型成立。
 - `SlopCommentChecker` / `SlopWriteGuard`（`harness.toolbase` 包，
   2026-11-06，OmO comment-checker 研读落地）：AI 腔注释在落盘前
   打回，不是提交后 review 返工。确定性模式库（不依赖外部二进制）
@@ -768,7 +775,9 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
   ERROR 拦死、打回文本带行号+类别+原文（agent 照着改），WARN 放行
   带命中清单。场景（`mvn exec:java@commentcheck`）：模式库逐项揪 +
   写入链路拦-修-放 + WHY 注释/工单链接/正则解释/BDD 标记不误伤
-  三幕。
+  三幕。真实冒烟（`mvn exec:java@commentcheckreal`，需 LLM_API_KEY）：
+  真实模型写注释过检查器——命中则 findings 回流重写一轮、下降才算过，
+  写得干净如实记录不硬凑。
 - `ToolPolicy` / `ExpertSession` / `ExpertRegistry` / `ExpertReport`
   （`harness.multiagent.expert` 包，2026-11-06，OmO curated 只读
   专家研读落地）：explore/librarian 这一族只读专家的三条隔离原则——
@@ -780,7 +789,10 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
   对只读专家硬拒——进共享黑板只会看不能写是设计错误，领班走
   task 委派、结果以报告回收。场景（`mvn exec:java@expert`）：
   隔离收窄 + allow-list 连 edit 也进不来 + 硬拒指路 +
-  两家 FAST 档并行委派报告合并 三幕。
+  两家 FAST 档并行委派报告合并 三幕。真实冒烟
+  （`mvn exec:java@expertreal`，需 LLM_API_KEY）：真模型坐 explore
+  位——上下文仍只有任务卡（领班机密没跟过去）、全程零拦下、报告
+  记 FAST 档，fresh 会话与只读约束对真模型原样成立。
 - `TeamMailbox` / `SharedTaskList` / `Team`（`harness.multiagent.team`
   包，2026-11-06，OmO Team Mode 研读落地）：横向通信的最小内核。
   共享信箱：点对点 + 广播、fire-and-forget 收信方自己 poll、
@@ -794,7 +806,10 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
   （no nested teams——队员喊拉子队是绕圈前兆）；requestShutdown /
   approveShutdown 只有领班能批；status() 一页汇总成员/任务三态/
   信箱流量/预算余量/被拦台账。场景（`mvn exec:java@team`）：
-  黑板闭环 + 护栏四连 + 收工审批与一页对账 三幕。
+  黑板闭环 + 护栏四连 + 收工审批与一页对账 三幕。真实冒烟
+  （`mvn exec:java@teamreal`，需 LLM_API_KEY）：真模型坐 builder
+  位按黑板协议回信（摘要/风险两行、不复述来信），回信进信箱、
+  任务闭环、team_status 一页对账——横向通信不是各说各话。
 - `SkillWatcher`（`harness.skills` 包，2026-10-31，尼恩「技能注入」链路
   的单进程版）：技能热刷新。本地目录就是 Manager→Worker 的管道，
   文件名 → mtime+size 指纹（ETag 替身）轮询，新增/变更即注册或重载，

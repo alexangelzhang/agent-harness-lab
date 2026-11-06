@@ -25,7 +25,7 @@ multiagent 下的 curated 只读专家与 Team Mode 横向通信：fresh
 
 ## 构建与运行
 
-- 两模块：`core/` 是库（`agent-core`，语义化版本，生产可用），`verify/` 是集成验证（63 个场景）。**铁律：core 不许依赖 verify 模块的任何类**（编译即验证）；新场景进 verify 模块、照抄相邻 pom execution 格式。
+- 两模块：`core/` 是库（`agent-core`，语义化版本，生产可用），`verify/` 是集成验证（68 个场景）。**铁律：core 不许依赖 verify 模块的任何类**（编译即验证）；新场景进 verify 模块、照抄相邻 pom execution 格式。
 - Java 17 + Maven。编译挂 `-Werror -Xlint:all`：**unused import、
   缺 serialVersionUID 这类警告会直接挂构建**，别留。
 - 场景入口走 pom 的 exec executions（登记在 verify/pom.xml）：

@@ -74,6 +74,8 @@
 
 **对我们的启发**：模型输出是「永远可能带伤的输入」，容错层的位置在解析与执行之间；修复必须确定性 + 可审计，任何「让模型自己再猜一次」的修法都是把伤口往后挪。
 
+- 真实冒烟（@faulttolerancereal，2026-11-06）：真实模型对带锚渲染吐编辑指令，两次实测双结局——一次把第 3 行的锚抄给第 2 行，验锚整批拒绝、原文一个字符没动（真实翻车坐实了带锚的意义）；一次抄对锚，repair 零修复、应用干净、新值在场。带伤输出的标准归宿是「修得好就过、修不好就拒」，不是炸。
+
 ## 七、纪律层机制（2026-11-05 补读，落地对象）
 
 出处：omo.dev 文档站 Docs 总页「Why It's Better」一节与编排指南的 ulw-execute 续跑段。
@@ -113,6 +115,8 @@
 
 **落地（`harness.wake` 包）**：`TaskBoard`（任务登记 + 叫醒交换机：await 挂订阅、终态先到先定、重复上报吞掉、tick 手动时钟超期兜底 TIMEOUT、poll 护栏超上限改回劝退指引并入账）、`WakeMessage`（COMPLETED/FAILED/TIMEOUT 三态叫醒，渲染成注入会话的系统消息）。场景 `@wake` 三幕对照：轮询组烧 5 次查询还碰护栏，订阅组零轮询一次叫醒拿到结果；失败/超时/迟到订阅各有兜底。
 
+- 真实冒烟（@wakereal，2026-11-06）：WakeMessage 渲染的系统通知注入真实主 agent，终答直接消费结果本体（img-9f3a 在场、没有另查一轮）——「叫醒带答案」对真实模型成立。
+
 ## 十一、comment checker（2026-11-06 补读，已落地 harness.toolbase）
 
 出处：源码 `packages/comment-checker-core/AGENTS.md`、`packages/omo-opencode/src/hooks/comment-checker/AGENTS.md`、`packages/shared-skills/skills/remove-ai-slops/SKILL.md`。
@@ -124,6 +128,8 @@
 
 **落地（`harness.toolbase` 包）**：`SlopCommentChecker`（确定性模式库，不依赖外部二进制：FILLER 空话副词 / DECORATIVE_SEPARATOR 装饰线 / EMPTY_TODO 没下文的 TODO / ECHO_COMMENT 英文复述注释——注释词全部出现在下一行标识符词表里，先剥 the/of 等功能词；中文复述不做词面比对防误伤；行内 @allow-comment 与文件头 disable-file 两个逃生口）、`SlopWriteGuard`（落盘前闸门：ERROR 拦死、打回文本带行号+类别+原文，WARN 放行但带命中清单）。场景 `@commentcheck` 三幕：模式库逐项揪（行号类别对得上、逃生口放行）、写入链路拦-修-放、讲 WHY/工单链接/正则解释/BDD 标记不误伤。
 
+- 真实冒烟（@commentcheckreal，2026-11-06）：真实模型给代码写注释过检查器，两次实测初稿均干净（实报不硬凑）；命中路径（findings 回流重写一轮、下降才算过）在场景里待命。
+
 ## 十二、curated 只读专家（2026-11-06 补读，已落地 harness.multiagent.expert）
 
 出处：源码 `packages/omo-opencode/src/agents/AGENTS.md`（11 内置 agent 定义 + 工具禁用表）、`src/shared/agent-tool-restrictions.ts`。
@@ -134,6 +140,8 @@
 - **Team Mode 硬拒只读专家**：TeamSpec parse 时直接拒，理由是只读专家进共享黑板只会看不能写，是设计错误；领班要用就走 task 委派、结果以报告回收。
 
 **落地（`harness.multiagent.expert` 包）**：`ToolPolicy`（deny-list / allow-list 两种只读档，放行与拦下都入账）、`ExpertSession`（fresh 会话：上下文只有任务卡、工具调用全过策略、模型档钉在会话上）、`ExpertRegistry`（curated 名册：explore/librarian/plan-reviewer/vision-looker 四家定义 spawn 即装配；teamVerdict 只读硬拒带指路理由）、`ExpertReport`（结论 + 读了什么 + 被拦了什么 + 模型档，一行摘要可审计）。场景 `@expert` 三幕：隔离与收窄（机密不进专家上下文、写与再委派拦下入账）、名册与 Team Mode（allow-list 连 edit 也进不来、硬拒指路）、并行委派回收（两家 FAST 档并行、报告合并进领班上下文）。
+
+- 真实冒烟（@expertreal，2026-11-06）：真模型坐 explore 位——专家上下文仍只有任务卡（领班机密没跟过去）、全程零拦下、结论带文件路径与关键逻辑名、报告记 FAST 档。fresh 会话与只读约束对真模型原样成立。
 
 ## 十三、Team Mode 横向通信（2026-11-06 补读，已落地 harness.multiagent.team）
 
@@ -147,3 +155,5 @@
 - **OmO 反模式清单**（照抄进本仓库教训栏）：不绕过 session-registry（spawn 竞态窗）；不带锁不写状态文件；不拿 delegate-task 冒充 team 工具；不许队员建队。
 
 **落地（`harness.multiagent.team` 包）**：`TeamMailbox`（点对点 + 广播 fan-out、payload cap 拒发、每轮消息预算耗尽拒发——防「一次诉求传四五棒」的陪跑，对应 Swarm maxHandoffs 教训；seq 记账）、`SharedTaskList`（认领原子：PENDING→CLAIMED 只发生一次；谁认领谁完成——写密集互相覆盖的第一道闸）、`Team`（建队 parse 时全校验：超员拒、只读专家经 ExpertRegistry.isReadOnlyExpert 硬拒指路 task 委派；memberCreateTeam 只拦不执行记账——队员喊拉子队是绕圈前兆；requestShutdown/approveShutdown 只有领班能批；status() 一页汇总成员/任务三态/信箱流量/预算余量/被拦台账）。场景 `@team` 三幕：黑板闭环（广播、抢活原子拒、替勾被拒）、护栏四连（parse 拒只读、超员拒、嵌套建队入账、payload 与预算双 cap）、生命周期（非领班批无效、一页状态数字对账）。
+
+- 真实冒烟（@teamreal，2026-11-06）：真模型坐 builder 位，poll 到领班站内信后按「摘要/风险」两行格式回信，不复述来信；回信进信箱、任务认领闭环、team_status 一页对账——横向通信对真模型不是各说各话。
