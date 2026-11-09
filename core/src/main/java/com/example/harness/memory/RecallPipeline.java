@@ -40,6 +40,7 @@ public final class RecallPipeline {
     private final MemoryTrigger trigger = new MemoryTrigger();
     private final MemoryMetrics metrics;
     private final MemoryJanitor janitor;
+    private final MemoryContextBudget contextBudget;
 
     /** 每多少次召回触发一轮后台清理。sweep 幂等且廉价，8 是拍脑袋的
      *  稳妥值——生产可换时间窗口或挂定时器，接口不变。 */
@@ -52,8 +53,15 @@ public final class RecallPipeline {
 
     /** 注入清理器（测试/演示用短保留期时）。 */
     public RecallPipeline(MemoryMetrics metrics, MemoryJanitor janitor) {
+        this(metrics, janitor, null);
+    }
+
+    /** 显式传入预算后，长期记忆改为有界索引；默认仍是旧全文格式。 */
+    public RecallPipeline(MemoryMetrics metrics, MemoryJanitor janitor,
+                          MemoryContextBudget contextBudget) {
         this.metrics = metrics;
         this.janitor = janitor;
+        this.contextBudget = contextBudget;
     }
 
     /**
@@ -131,20 +139,32 @@ public final class RecallPipeline {
             }
         }
 
-        // STEP 09：组织成模型能直接用的上下文块
+        // STEP 09：默认保留旧全文；显式预算模式只放长期记忆索引
         List<String> lines = new ArrayList<>();
         for (String turn : shortLane) {
             lines.add("[短期] " + turn);
         }
         for (Fused f : kept) {
             Memory m = f.hit.memory();
-            lines.add("[长期] " + m.content() + "（来源：" + m.source()
-                    + "，置信 " + m.confidence() + "，相关度 "
-                    + String.format("%.2f", f.score) + "）");
+            if (contextBudget != null) {
+                lines.add(contextBudget.indexLine(m));
+            } else {
+                lines.add("[长期] " + m.content() + "（来源：" + m.source()
+                        + "，置信 " + m.confidence() + "，相关度 "
+                        + String.format("%.2f", f.score) + "）");
+            }
         }
         for (KnowledgeBase.Fact fact : kbLane) {
             lines.add("[知识库] " + fact.content() + "（来源：" + fact.source()
                     + (fact.authoritative() ? "，权威来源" : "") + "）");
+        }
+        if (contextBudget != null) {
+            MemoryContextBudget.Result budgeted = contextBudget.apply(lines);
+            lines = new ArrayList<>(budgeted.lines());
+            if (budgeted.omitted() > 0) {
+                notes.add("顶层注入预算：整行省略 " + budgeted.omitted()
+                        + " 条，保留 " + budgeted.utf8Bytes() + " UTF-8 字节");
+            }
         }
         metrics.recordInjected(lines.size());
         return new RecallResult(lines, notes, metrics.snapshot());

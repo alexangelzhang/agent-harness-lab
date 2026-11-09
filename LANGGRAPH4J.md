@@ -49,6 +49,7 @@
 | 11-06 | comment checker | OmO comment-checker 落地进 `harness.toolbase`：`SlopCommentChecker`（确定性模式库拦四类 AI 腔注释——FILLER 空话副词 / DECORATIVE_SEPARATOR 装饰线 / EMPTY_TODO 没下文 TODO / ECHO_COMMENT 英文复述注释，剥功能词后比对下一行标识符词表；中文复述不比对防误伤；@allow-comment 与 disable-file 逃生口）、`SlopWriteGuard`（落盘前闸门：ERROR 打回带行号+类别+原文，WARN 放行带清单——拦截点在落盘前不是提交后）——场景 `@commentcheck` 三幕全断言；真实冒烟 `@commentcheckreal`：真实模型写注释过检查器，命中则 findings 回流重写一轮、干净如实记录 |
 | 11-06 | curated 只读专家 | OmO 内置只读 agent 机制落地进 `harness.multiagent.expert`：`ToolPolicy`（deny-list 点名禁 write/edit/spawn 或 allow-list 全部禁掉只留 read，只读是配置不是自觉，放行/拦下入账）、`ExpertSession`（fresh 会话——上下文只有任务卡，主会话的计划/机密/闲聊不进专家世界；模型档钉在会话上）、`ExpertRegistry`（curated 名册 spawn 即装配；Team Mode 对只读专家硬拒带指路——进共享黑板只会看不能写是设计错误，领班走 task 委派）、`ExpertReport`（结论+审计轨迹+模型档）——场景 `@expert` 三幕全断言；真实冒烟 `@expertreal`：真模型坐 explore 位，隔离/只读/FAST 档原样成立 |
 | 11-06 | Team Mode 横向通信 | OmO team-mode 落地进 `harness.multiagent.team`：`TeamMailbox`（共享信箱——点对点 + 广播 fan-out、fire-and-forget、payload cap 拒发、每轮消息预算耗尽拒发防陪跑，对应 Swarm maxHandoffs 教训）、`SharedTaskList`（共享任务清单——认领原子 PENDING→CLAIMED 只发生一次、谁认领谁完成，写密集互相覆盖的第一道闸）、`Team`（建队 parse 时全校验：超员拒、只读专家经 ExpertRegistry 硬拒指路 task 委派；队员再建队只拦不执行记账——no nested teams；requestShutdown/approveShutdown 只有领班能批；status() 一页汇总）——场景 `@team` 三幕全断言；真实冒烟 `@teamreal`：真模型坐 builder 位按黑板协议回信，信箱闭环、一页对账 |
+| 11-09 | Agent Memory Dreaming | Anthropic Agent Memory 三篇中文解读研读落地：知识状态与版本、残差写入闸门、原始证据纠错与上提、带来源和压缩边界的 Wiki、行数与 UTF-8 字节双预算索引、按后续需要与实际使用计算 precision/recall；旧版本共享写不能覆盖新值，默认全文召回保持兼容——`@memorydream` 五幕全断言；`@memorydreamreal` 三片真实同题 A/B 共 24 样本全按协议收口，纠错治理组 3/3 答对、遗忘未治理与清理组均 3/3 答对、索引组字节下降但每遍多一次调用，完整逐臂数字与小样本边界见 docs/anthropic_agent_memory.md |
 
 一句话：模式层（九大模式）→ 载体层（手写/状态图/原语/动态工作流，可对比选型）
 → 治理层（预算/档案/网关/审批/蒸馏/记忆——写回有闸门、遗忘在岗、五维可量）
@@ -57,7 +58,7 @@
 ## 运行
 
 仓库分两模块（2026-11-01 起）：`core/`=库 `agent-core`（语义化版本，生产可用），
-`verify/`=68 个场景（core 的可执行规约）。以下命令从仓库根跑，
+`verify/`=70 个场景（core 的可执行规约）。以下命令从仓库根跑，
 `scripts/dev.sh <id>` 与 `mvn -q exec:java@<id> -pl verify` 等价
 （前者自动先装 parent+core；首次手动跑先 `mvn -q install -N && mvn -q install -pl core`）：
 
@@ -639,6 +640,26 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
   抗干扰/持久/效率/容量）+ 限容量最久未用淘汰；同分召回按创建时间取新、
   写入时钟严格递增。场景（`mvn exec:java@memorybench`）：写入闸门 →
   遗忘清理 → 五维出分三幕；评测从「支持多长」转向「过去是否真的有用」。
+- `MemoryDreamer` / `ResidualMemoryGate` / `MemoryWiki` /
+  `MemoryContextBudget` / `MemoryPredictionBench` / `MemoryAnswerBench`
+  （`harness.memory` 包，2026-11-09，Anthropic Agent Memory 三篇中文解读研读落地）：
+  长期记忆只收无法重观测且能活到下次维护的残差；知识状态区分观察、推断、验证和失效，
+  纠错与上提同时检查原始 transcript 证据和当前版本，旧版本写入直接拒绝。
+  Wiki 强制来源与压缩比、断链只能重定向到已有页面；显式索引模式只带
+  ID/标签/来源/知识状态/版本，行数与 UTF-8 字节双预算，默认全文召回不变。
+  预测评分按写入、后续需要和实际使用聚合 precision/recall，空分母为 NaN；
+  真实终答按期望标识、禁用标识和拒答标记确定性分类，禁用值优先。
+  场景（`mvn exec:java@memorydream`）：残差写入 → 证据纠错与版本冲突 →
+  Wiki 与断链 → 索引预算 → 预测评分五幕。真实同题 A/B 场景
+  （`scripts/dev.sh memorydreamreal "[1-3] [runs]"`，需 LLM_API_KEY）依次跑
+  纠错、遗忘、预算三个分片，默认每臂 3 遍；先过 ProtocolProbe，最多 4 轮，
+  只有合法 Finish 才判分，输出原始动作、调用数、初始记忆与累计请求 UTF-8 字节。
+  2026-11-09 以 kimi-k2-0905-preview 每臂跑 3 遍：纠错旧版本组 3/3 污染、
+  治理组 3/3 答对；遗忘未治理与清理组都 3/3 答对，没有准确率差异；预算两组
+  都 3/3 答对，索引组初始记忆均值 1628 → 330 字节、累计请求均值
+  2265 → 2065 字节，同时每遍调用 1 → 2 次。单模型小样本且无随机种子控制，
+  不做显著性或跨模型外推。全文浓缩、逐臂数字与证据边界见
+  docs/anthropic_agent_memory.md。
 - `EpisodicMemory`（`harness.memory` 包，2026-10-31，Definitive Guide
   Ch10）：情境记忆——三大记忆类型里最后一块。失败档案的主导重试理由
   蒸馏成「下次先处理这个」的教训进记忆库（置信 0.85 直接 ACTIVE：轨迹
@@ -833,7 +854,8 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
   `rosterProtocol(names)` 生成分派协议 prompt（专员名单必须写进 prompt）。
   已接入：realfoldeval（Action 协议）、real（ReAct 场景）、realadvanced
   （HITL + 混合调度两段；客户端层 $web_search 无 Action 协议，刻意不接）、
-  supervisorreal 场景一、topologyreal 场景二（分派协议）。
+  supervisorreal 场景一、topologyreal 场景二（分派协议）、memorydreamreal
+  （read_memory / Finish 同题 A/B 协议）。
   场景（`mvn exec:java@protocolprobe`）三幕：剧本通过放行、剧本闲聊
   拦截（探针之外 0 调用）、真实双探（裸 prompt 挂 / 带协议过，kimi-k2
   实测复现）。

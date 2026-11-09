@@ -14,11 +14,10 @@ import java.util.function.Function;
 /**
  * 记忆库：分作用域存、按关键词检索。
  *
- * <p>检索是<b>两条路</b>（文章 #3）：对话开始时 Harness 自动把当前项目相关的
- * 记忆放进初始上下文；模型干到一半发现缺背景，主动 {@link #search}——
- * 两个入口走同一个打分器。打分器是确定性的关键词重叠，
- * 不假装是向量库：生产换 embedding/reranker 是挂点，分层与生命周期
- * 的骨架先立住。</p>
+ * <p>检索是两个入口：对话开始时自动注入当前项目相关记忆，模型干到一半
+ * 发现缺背景时主动 {@link #search}。两个入口共用确定性的关键词重叠打分。
+ * 所有读写方法同步；带版本的更新在同一个临界区里检查并替换，旧整理者
+ * 不能覆盖已经推进的版本。</p>
  */
 public final class MemoryStore {
 
@@ -40,22 +39,19 @@ public final class MemoryStore {
         this(Integer.MAX_VALUE);
     }
 
-    /**
-     * 限容量的记忆库：写到上限后，新增触发<b>最久未用淘汰</b>——
-     * 容量是控制面问题，不是无限涨（综述评测五维之 capacity）。
-     */
+    /** 限容量的记忆库：新增到上限后，先淘汰最久未用的 ACTIVE 记忆。 */
     public MemoryStore(int maxEntries) {
         this.maxEntries = maxEntries;
     }
 
     /** 淘汰计数（capacity 评测用）。 */
-    public long evictedCount() {
+    public synchronized long evictedCount() {
         return evicted;
     }
 
     /** 写入一条记忆（默认置信 0.8 / 有效 / 长期 / 不限权限），分配自增 id。 */
-    public Memory add(Memory.Scope scope, String owner, String content,
-                      String source, List<String> tags) {
+    public synchronized Memory add(Memory.Scope scope, String owner, String content,
+                                   String source, List<String> tags) {
         Memory m = Memory.of("mem-" + seq.incrementAndGet(), scope, owner,
                 content, source, nextTimestamp(), List.copyOf(tags));
         return insert(m);
@@ -63,17 +59,29 @@ public final class MemoryStore {
 
     /**
      * 完整写入：显式指定置信度、有效期、权限。
-     * <b>写入闸门</b>：置信 &lt; 0.6（模型推断而非用户确认）的记忆以
-     * UNCONFIRMED 落库——检索默认不出，确认（{@link #confirm}）后才转 ACTIVE。
+     * 置信 &lt; 0.6 的记忆以 UNCONFIRMED 落库，确认后才转 ACTIVE。
      */
-    public Memory add(Memory.Scope scope, String owner, String content, String source,
-                      List<String> tags, double confidence, long validUntilMs,
-                      List<String> permissions) {
+    public synchronized Memory add(Memory.Scope scope, String owner, String content,
+                                   String source, List<String> tags, double confidence,
+                                   long validUntilMs, List<String> permissions) {
         Memory.Status status = confidence < 0.6
                 ? Memory.Status.UNCONFIRMED : Memory.Status.ACTIVE;
         Memory m = new Memory("mem-" + seq.incrementAndGet(), scope, owner, content,
                 source, nextTimestamp(), List.copyOf(tags), confidence,
                 status, validUntilMs, List.copyOf(permissions));
+        return insert(m);
+    }
+
+    /** 完整写入并显式声明知识状态，供离线整理等有证据分类的入口使用。 */
+    public synchronized Memory add(Memory.Scope scope, String owner, String content,
+                                   String source, List<String> tags, double confidence,
+                                   long validUntilMs, List<String> permissions,
+                                   Memory.KnowledgeState knowledgeState) {
+        Memory.Status status = confidence < 0.6
+                ? Memory.Status.UNCONFIRMED : Memory.Status.ACTIVE;
+        Memory m = new Memory("mem-" + seq.incrementAndGet(), scope, owner, content,
+                source, nextTimestamp(), List.copyOf(tags), confidence, status,
+                validUntilMs, List.copyOf(permissions), knowledgeState, 0);
         return insert(m);
     }
 
@@ -83,8 +91,7 @@ public final class MemoryStore {
 
     /**
      * 与写入记忆时同一个时钟的当前值——比对这个库里的 createdAt 就用它，
-     * 否则严格递增时钟领先墙钟 1ms 时，「超保留期」判断会把刚写的误判成
-     还没到点（Janitor 的 sweep 用这个，别直接用 currentTimeMillis）。
+     * 否则严格递增时钟领先墙钟 1ms 时，保留期判断会把刚写的误判成还没到点。
      */
     public static long now() {
         return Math.max(System.currentTimeMillis(), CLOCK.get());
@@ -101,7 +108,7 @@ public final class MemoryStore {
         return m;
     }
 
-    /** 淘汰最久未用的 ACTIVE 记忆（UNCONFIRMED/SUPERSEDED/EXPIRED 由 Janitor 管）。 */
+    /** 淘汰最久未用的 ACTIVE 记忆（其余生命周期状态由 Janitor 管）。 */
     private boolean evictLeastRecentlyUsed() {
         Memory victim = memories.stream()
                 .filter(m -> m.status() == Memory.Status.ACTIVE)
@@ -117,35 +124,57 @@ public final class MemoryStore {
     }
 
     /** 确认一条待确认记忆转正（人审/复跑验证后调用）。 */
-    public boolean confirm(String id) {
-        return replace(id, m -> m.status() == Memory.Status.UNCONFIRMED
-                ? new Memory(m.id(), m.scope(), m.owner(), m.content(), m.source(),
-                        m.createdAtMs(), m.tags(), Math.max(m.confidence(), 0.8),
-                        Memory.Status.ACTIVE, m.validUntilMs(), m.permissions())
-                : m);
+    public synchronized boolean confirm(String id) {
+        return replace(id, null, MemoryStore::promote);
+    }
+
+    /** 只在调用方仍持有当前版本时确认，过期版本返回 false 且不改内容。 */
+    public synchronized boolean confirm(String id, long expectedRevision) {
+        return replace(id, expectedRevision, MemoryStore::promote);
+    }
+
+    private static Memory promote(Memory m) {
+        if (m.status() != Memory.Status.UNCONFIRMED) {
+            return m;
+        }
+        return copy(m, m.content(), m.source(), Math.max(m.confidence(), 0.8),
+                Memory.Status.ACTIVE, Memory.KnowledgeState.VERIFIED);
+    }
+
+    /**
+     * 依据新证据纠错：只有期望版本仍匹配才替换，并把知识标为已验证。
+     * 证据是否真存在于原始记录由调用前的整理流程核验。
+     */
+    public synchronized boolean correct(String id, long expectedRevision,
+                                        String content, String source) {
+        return replace(id, expectedRevision, m -> copy(m, content, source,
+                Math.max(m.confidence(), 0.9), Memory.Status.ACTIVE,
+                Memory.KnowledgeState.VERIFIED));
+    }
+
+    /** 按 id 读取当前版本；不存在时返回 null。 */
+    public synchronized Memory get(String id) {
+        return memories.stream().filter(m -> m.id().equals(id)).findFirst().orElse(null);
     }
 
     /** 物理清除（遗忘的终点：Janitor 对超保留期的归档项调用）。 */
-    public boolean purge(String id) {
+    public synchronized boolean purge(String id) {
         lastAccess.remove(id);
         return memories.removeIf(m -> m.id().equals(id));
     }
 
     /** 主动检索（不限角色）：query 分词后与 内容+标签 做重叠打分，降序返回。 */
-    public List<Hit> search(String query) {
+    public synchronized List<Hit> search(String query) {
         return search(query, null, List.of());
     }
 
     /** 限定作用域的检索。 */
-    public List<Hit> search(String query, Memory.Scope scope) {
+    public synchronized List<Hit> search(String query, Memory.Scope scope) {
         return search(query, scope, List.of());
     }
 
-    /**
-     * 带角色校验的检索：只出「有效 + 没过期 + 权限够」的记忆——
-     * 被替代的和过期的留在库里（{@link #all} 可查）但不进结果。
-     */
-    public List<Hit> search(String query, Memory.Scope scope, List<String> roles) {
+    /** 带角色校验的检索：只出有效、没过期且权限够的记忆。 */
+    public synchronized List<Hit> search(String query, Memory.Scope scope, List<String> roles) {
         Set<String> terms = terms(query);
         List<Hit> hits = new ArrayList<>();
         for (Memory m : memories) {
@@ -161,8 +190,7 @@ public final class MemoryStore {
                 lastAccess.put(m.id(), System.currentTimeMillis());
             }
         }
-        // 同分取新：新旧事实并存时，召回必须给更新的——
-        // 否则记得越久越差（MemoryBench.interference 守这条）
+        // 同分取新：新旧事实并存时，召回必须给更新的
         hits.sort(Comparator.comparingDouble(Hit::score).reversed()
                 .thenComparing(Comparator.comparingLong(
                         (Hit h) -> h.memory().createdAtMs()).reversed()));
@@ -170,52 +198,68 @@ public final class MemoryStore {
     }
 
     /** 自动注入的素材：某作用域下分数过线的头部记忆。 */
-    public List<Memory> injectable(Memory.Scope scope, String queryHint, int topK) {
+    public synchronized List<Memory> injectable(Memory.Scope scope, String queryHint, int topK) {
         return search(queryHint, scope).stream()
                 .limit(topK)
                 .map(Hit::memory)
                 .toList();
     }
 
-    /** 标记一条记忆为「已被替代」：保留备查，检索默认不再出它。 */
-    public boolean supersede(String id) {
-        return replace(id, m -> new Memory(m.id(), m.scope(), m.owner(), m.content(),
-                m.source(), m.createdAtMs(), m.tags(), m.confidence(),
-                Memory.Status.SUPERSEDED, m.validUntilMs(), m.permissions()));
+    /** 标记一条记忆为已被替代：保留备查，检索默认不再出它。 */
+    public synchronized boolean supersede(String id) {
+        return replace(id, null, m -> copy(m, m.content(), m.source(), m.confidence(),
+                Memory.Status.SUPERSEDED, Memory.KnowledgeState.STALE));
     }
 
     /** 到期置 EXPIRED（Janitor 调用；也可单独用于演示）。 */
-    public boolean expire(String id) {
-        return replace(id, m -> new Memory(m.id(), m.scope(), m.owner(), m.content(),
-                m.source(), m.createdAtMs(), m.tags(), m.confidence(),
-                Memory.Status.EXPIRED, m.validUntilMs(), m.permissions()));
+    public synchronized boolean expire(String id) {
+        return replace(id, null, m -> copy(m, m.content(), m.source(), m.confidence(),
+                Memory.Status.EXPIRED, Memory.KnowledgeState.STALE));
     }
 
-    /** 合并：把补充内容并进已有记忆（记录更完整，不是多一条重复）。 */
-    public boolean merge(String id, String addition, String source) {
-        return replace(id, m -> new Memory(m.id(), m.scope(), m.owner(),
-                m.content() + "；" + addition,
-                m.source() + " / " + source, m.createdAtMs(), m.tags(),
-                Math.max(m.confidence(), 0.9), m.status(), m.validUntilMs(),
-                m.permissions()));
+    /** 合并：把补充内容并进已有记忆，而不是多一条重复。 */
+    public synchronized boolean merge(String id, String addition, String source) {
+        return replace(id, null, m -> copy(m, m.content() + "；" + addition,
+                m.source() + " / " + source, Math.max(m.confidence(), 0.9),
+                m.status(), m.knowledgeState()));
     }
 
     /** 全部记忆（含被替代/过期的，审计与断言用）。 */
-    public List<Memory> all() {
+    public synchronized List<Memory> all() {
         return List.copyOf(memories);
     }
 
-    private boolean replace(String id, Function<Memory, Memory> update) {
+    private boolean replace(String id, Long expectedRevision,
+                            Function<Memory, Memory> update) {
         for (int i = 0; i < memories.size(); i++) {
-            if (memories.get(i).id().equals(id)) {
-                memories.set(i, update.apply(memories.get(i)));
+            Memory current = memories.get(i);
+            if (!current.id().equals(id)) {
+                continue;
+            }
+            if (expectedRevision != null && current.revision() != expectedRevision) {
+                return false;
+            }
+            Memory updated = update.apply(current);
+            if (updated.equals(current)) {
                 return true;
             }
+            memories.set(i, new Memory(updated.id(), updated.scope(), updated.owner(),
+                    updated.content(), updated.source(), updated.createdAtMs(), updated.tags(),
+                    updated.confidence(), updated.status(), updated.validUntilMs(),
+                    updated.permissions(), updated.knowledgeState(), current.revision() + 1));
+            return true;
         }
         return false;
     }
 
-    /** query 分词：空白/标点切开、转小写；含中文的词再拆 2-gram（「部署命名规范」→ 部署/署命/命名/名规/规范）。记忆检索与候选筛选共用同一套分词。 */
+    private static Memory copy(Memory m, String content, String source, double confidence,
+                               Memory.Status status, Memory.KnowledgeState knowledgeState) {
+        return new Memory(m.id(), m.scope(), m.owner(), content, source, m.createdAtMs(),
+                m.tags(), confidence, status, m.validUntilMs(), m.permissions(),
+                knowledgeState, m.revision());
+    }
+
+    /** query 分词：空白/标点切开、转小写；含中文的词再拆 2-gram。 */
     public static Set<String> terms(String query) {
         Set<String> out = new LinkedHashSet<>();
         for (String t : query.toLowerCase(Locale.ROOT).split("[\\s,，。；;？?！!]+")) {

@@ -14,7 +14,7 @@
     <packaging>jar</packaging>
 
     <name>agent-verify</name>
-    <description>集成验证层：68 个场景（剧本离线可跑 + 真实模型 gated 在 LLM_API_KEY），
+    <description>集成验证层：70 个场景（剧本离线可跑 + 真实模型 gated 在 LLM_API_KEY），
         是 agent-core 的可执行规约与回归套件。入口照旧 mvn -q exec:java@id（在仓库根跑，cwd 不变）。</description>
 
     <dependencies>
@@ -306,6 +306,18 @@
                         <id>memorybench</id>
                         <configuration>
                             <mainClass>com.example.harness.memory.MemoryGovernanceScenario</mainClass>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>memorydream</id>
+                        <configuration>
+                            <mainClass>com.example.harness.memory.MemoryDreamingScenario</mainClass>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>memorydreamreal</id>
+                        <configuration>
+                            <mainClass>com.example.harness.memory.MemoryDreamingRealScenario</mainClass>
                         </configuration>
                     </execution>
                     <execution>
