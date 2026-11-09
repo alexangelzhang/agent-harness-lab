@@ -7,7 +7,7 @@ Agent 工程实验场（Java）：从《Agent 的九种设计模式》出发，�
 agentloop 原语 / workflow 动态工作流）、生产级治理层（harness 包）。
 治理层的版图：记忆系统（触发 → 三路召回 → 融合 → 写回有闸门 →
 遗忘在岗 → 五维 benchmark 出分 → 情境记忆 + Kibitzer 只读侧车
-当常驻裁判）、Sensor 反馈层（计算/推断分野、修正指引回流、质量
+当常驻裁判 → 动态 Dreaming 分批分析、集中整理与夜间窗口）、Sensor 反馈层（计算/推断分野、修正指引回流、质量
 分层、转向台账）、Harness 模板（拓扑约定 + sensor 一捆 + 漂移
 检查）、模型容错层（哈希锚定编辑 + 畸形 tool_call 先修再判）、
 纪律层（Todo 拽回 + Goal 完成审计）、路由双件（任务分档 + 工种
@@ -25,7 +25,7 @@ multiagent 下的 curated 只读专家与 Team Mode 横向通信：fresh
 
 ## 构建与运行
 
-- 两模块：`core/` 是库（`agent-core`，语义化版本，生产可用），`verify/` 是集成验证（70 个场景）。**铁律：core 不许依赖 verify 模块的任何类**（编译即验证）；新场景进 verify 模块、照抄相邻 pom execution 格式。
+- 两模块：`core/` 是库（`agent-core`，语义化版本，生产可用），`verify/` 是集成验证（73 个场景）。**铁律：core 不许依赖 verify 模块的任何类**（编译即验证）；新场景进 verify 模块、照抄相邻 pom execution 格式。
 - Java 17 + Maven。编译挂 `-Werror -Xlint:all`：**unused import、
   缺 serialVersionUID 这类警告会直接挂构建**，别留。
 - 场景入口走 pom 的 exec executions（登记在 verify/pom.xml）：

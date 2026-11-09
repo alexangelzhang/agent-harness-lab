@@ -224,6 +224,14 @@ public final class MemoryStore {
                 m.status(), m.knowledgeState()));
     }
 
+    /** 只在调用方仍持有当前版本时合并；过期版本返回 false，调用方应重读后重试。 */
+    public synchronized boolean merge(String id, long expectedRevision,
+                                      String addition, String source) {
+        return replace(id, expectedRevision, m -> copy(m, m.content() + "；" + addition,
+                m.source() + " / " + source, Math.max(m.confidence(), 0.9),
+                m.status(), m.knowledgeState()));
+    }
+
     /** 全部记忆（含被替代/过期的，审计与断言用）。 */
     public synchronized List<Memory> all() {
         return List.copyOf(memories);

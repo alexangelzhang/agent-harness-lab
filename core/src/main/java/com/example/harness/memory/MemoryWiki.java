@@ -78,6 +78,11 @@ public final class MemoryWiki {
         return pages.get(id);
     }
 
+    /** 当前页面快照，供集中整理重建完整索引。 */
+    public List<Page> pages() {
+        return List.copyOf(pages.values());
+    }
+
     /** 当前断链审计清单，格式为「来源页 -> 缺失页」。 */
     public List<String> brokenLinks() {
         List<String> broken = new ArrayList<>();

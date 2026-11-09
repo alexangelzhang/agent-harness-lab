@@ -40,6 +40,36 @@ class MemoryStoreRevisionTest {
     }
 
     @Test
+    void staleMergeFailsThenRereadPreservesBothAdditions() {
+        MemoryStore store = new MemoryStore();
+        Memory original = store.add(Memory.Scope.PROJECT, "owner", "合同保留双方条款",
+                "run-1", List.of("合同"));
+        long firstReaderRevision = original.revision();
+        long secondReaderRevision = original.revision();
+
+        assertTrue(store.merge(original.id(), firstReaderRevision, "甲方承担运输费", "run-2"));
+        assertFalse(store.merge(original.id(), secondReaderRevision, "乙方承担保险费", "run-3"));
+
+        Memory reread = store.get(original.id());
+        assertTrue(store.merge(original.id(), reread.revision(), "乙方承担保险费", "run-3"));
+        Memory current = store.get(original.id());
+        assertTrue(current.content().contains("甲方承担运输费"));
+        assertTrue(current.content().contains("乙方承担保险费"));
+        assertEquals(2, current.revision());
+    }
+
+    @Test
+    void versionedMergeRejectsMissingMemoryAndKeepsLegacyEntryPoint() {
+        MemoryStore store = new MemoryStore();
+        Memory original = store.add(Memory.Scope.PROJECT, "owner", "基础事实", "run-1", List.of());
+
+        assertFalse(store.merge("missing", 0, "不应写入", "run-2"));
+        assertFalse(store.merge(original.id(), 1, "旧版本不应写入", "run-2"));
+        assertTrue(store.merge(original.id(), "旧入口补充", "run-3"));
+        assertEquals("基础事实；旧入口补充", store.get(original.id()).content());
+    }
+
+    @Test
     void staleConfirmationLeavesUnconfirmedMemoryUntouched() {
         MemoryStore store = new MemoryStore();
         Memory original = store.add(Memory.Scope.PROJECT, "owner", "可能应该提前重试",

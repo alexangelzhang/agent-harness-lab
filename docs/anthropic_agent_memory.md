@@ -65,6 +65,12 @@ Wiki 页面应保留来源，体积需要预算，断链需要审计和修复。
 
 没有引入向量数据库、外部 Wiki 服务、新依赖或环境变量，也没有实现通用自然语言矛盾识别。结构化证据由调用方提供，代码负责核验它确实存在。
 
+### 动态工作流补充（2026-11-09）
+
+Anthropic Managed Agents Cookbook 的多 transcript 动态整理已补到同一记忆层：`MemoryDreamingWorkflow` 做分批独立分析、失败台账和一次集中整理；`MemoryStore.merge` 新增版本化重载；`MemoryInputSanitizer` 同时净化分析输入和候选输出；`MemoryOrganizer` 提供去重、完整索引、移动存根和冲突并列；`MemoryNightlyWindow` 只在完整成功时推进游标，运行中输入不自动补抓。消费侧复用 `ToolPolicy.readOnlyAllowlist()`，上一轮五幕和旧公共入口保持可用。
+
+完整原文浓缩、托管服务边界和本轮 6 个真实样本见 `docs/anthropic_cma_dynamic_dreaming.md`。本轮没有接 Managed Agents API、30 天版本服务或 cron，也没有把原文成本数字写成本地收益。
+
 ## 五、真实模型同题 A/B（2026-11-09）
 
 运行模型为 `kimi-k2-0905-preview`，每臂 3 遍，共 8 臂、24 个实验样本。三片各先用一次 `ProtocolProbe` 预检；所有样本均在最多 4 轮内以合法 `Finish` 收口。下表不含探针调用。
@@ -96,6 +102,9 @@ Wiki 页面应保留来源，体积需要预算，断链需要审计和修复。
 
 ```bash
 scripts/dev.sh memorydream
+scripts/dev.sh memorydynamicdream
+scripts/dev.sh memorydynamicdreamreal "1 3"
+scripts/dev.sh memorydynamicdreamreal "2 3"
 mvn -q test -pl core
 scripts/dev.sh memorydreamreal "1 3"
 scripts/dev.sh memorydreamreal "2 3"
