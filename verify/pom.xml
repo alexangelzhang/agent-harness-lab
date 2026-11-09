@@ -315,6 +315,18 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <id>memorydynamicdream</id>
+                        <configuration>
+                            <mainClass>com.example.harness.memory.MemoryDynamicDreamingScenario</mainClass>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>memorydynamicdreamreal</id>
+                        <configuration>
+                            <mainClass>com.example.harness.memory.MemoryDynamicDreamingRealScenario</mainClass>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>memorydreamreal</id>
                         <configuration>
                             <mainClass>com.example.harness.memory.MemoryDreamingRealScenario</mainClass>

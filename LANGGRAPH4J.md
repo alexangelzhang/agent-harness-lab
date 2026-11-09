@@ -50,6 +50,7 @@
 | 11-06 | curated 只读专家 | OmO 内置只读 agent 机制落地进 `harness.multiagent.expert`：`ToolPolicy`（deny-list 点名禁 write/edit/spawn 或 allow-list 全部禁掉只留 read，只读是配置不是自觉，放行/拦下入账）、`ExpertSession`（fresh 会话——上下文只有任务卡，主会话的计划/机密/闲聊不进专家世界；模型档钉在会话上）、`ExpertRegistry`（curated 名册 spawn 即装配；Team Mode 对只读专家硬拒带指路——进共享黑板只会看不能写是设计错误，领班走 task 委派）、`ExpertReport`（结论+审计轨迹+模型档）——场景 `@expert` 三幕全断言；真实冒烟 `@expertreal`：真模型坐 explore 位，隔离/只读/FAST 档原样成立 |
 | 11-06 | Team Mode 横向通信 | OmO team-mode 落地进 `harness.multiagent.team`：`TeamMailbox`（共享信箱——点对点 + 广播 fan-out、fire-and-forget、payload cap 拒发、每轮消息预算耗尽拒发防陪跑，对应 Swarm maxHandoffs 教训）、`SharedTaskList`（共享任务清单——认领原子 PENDING→CLAIMED 只发生一次、谁认领谁完成，写密集互相覆盖的第一道闸）、`Team`（建队 parse 时全校验：超员拒、只读专家经 ExpertRegistry 硬拒指路 task 委派；队员再建队只拦不执行记账——no nested teams；requestShutdown/approveShutdown 只有领班能批；status() 一页汇总）——场景 `@team` 三幕全断言；真实冒烟 `@teamreal`：真模型坐 builder 位按黑板协议回信，信箱闭环、一页对账 |
 | 11-09 | Agent Memory Dreaming | Anthropic Agent Memory 三篇中文解读研读落地：知识状态与版本、残差写入闸门、原始证据纠错与上提、带来源和压缩边界的 Wiki、行数与 UTF-8 字节双预算索引、按后续需要与实际使用计算 precision/recall；旧版本共享写不能覆盖新值，默认全文召回保持兼容——`@memorydream` 五幕全断言；`@memorydreamreal` 三片真实同题 A/B 共 24 样本全按协议收口，纠错治理组 3/3 答对、遗忘未治理与清理组均 3/3 答对、索引组字节下降但每遍多一次调用，完整逐臂数字与小样本边界见 docs/anthropic_agent_memory.md |
+| 11-09 | 动态记忆 Dreaming | Anthropic Managed Agents Cookbook 研读落地：多 transcript 分批独立分析 + 一次集中整理、逐项失败台账、共享合并版本校验与回读、输入和候选输出双净化、去重/完整索引/移动存根/冲突并列、只读消费与夜间窗口纯状态迁移——`@memorydynamicdream` 五幕全断言；`@memorydynamicdreamreal` 两片各 3 遍均保留 9/9 当前事实、0 旧值污染，共享组 3 次调用/3075 字节，动态组 12 次/10006 字节；不接托管 store、30 天版本服务或 cron，见 docs/anthropic_cma_dynamic_dreaming.md |
 
 一句话：模式层（九大模式）→ 载体层（手写/状态图/原语/动态工作流，可对比选型）
 → 治理层（预算/档案/网关/审批/蒸馏/记忆——写回有闸门、遗忘在岗、五维可量）
@@ -58,7 +59,7 @@
 ## 运行
 
 仓库分两模块（2026-11-01 起）：`core/`=库 `agent-core`（语义化版本，生产可用），
-`verify/`=70 个场景（core 的可执行规约）。以下命令从仓库根跑，
+`verify/`=73 个场景（core 的可执行规约）。以下命令从仓库根跑，
 `scripts/dev.sh <id>` 与 `mvn -q exec:java@<id> -pl verify` 等价
 （前者自动先装 parent+core；首次手动跑先 `mvn -q install -N && mvn -q install -pl core`）：
 
@@ -660,6 +661,22 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
   2265 → 2065 字节，同时每遍调用 1 → 2 次。单模型小样本且无随机种子控制，
   不做显著性或跨模型外推。全文浓缩、逐臂数字与证据边界见
   docs/anthropic_agent_memory.md。
+- `MemoryDreamingWorkflow` / `MemoryOrganizer` / `MemoryInputSanitizer` /
+  `MemoryNightlyWindow`（`harness.memory` 包，2026-11-09，Anthropic Managed Agents
+  Cookbook 研读落地）：多份 transcript 默认按 20 份分批，每份独立分析，全部尝试后
+  集中整理一次；报告 expected/processed/batches/failures/organized/organizerError/
+  successful，单项失败不取消其他输入，空输入与全部失败不整理，organizer 执行过不等于
+  整轮成功。`MemoryStore.merge` 新增 expectedRevision 重载，旧写者拒绝、重读合流并回读；
+  输入副本和分析输出都净化，原始证据不改。受控整理支持正文去重、完整索引、MOVED TO
+  存根与冲突双方日期来源保留；消费端复用只读 ToolPolicy。夜间窗口是纯状态迁移：
+  完整成功才推进 since，失败留窗，running 跳过且后续不自动补抓；不创建 cron。
+  场景（`scripts/dev.sh memorydynamicdream`）五幕全断言。真实同题对照
+  （`scripts/dev.sh memorydynamicdreamreal "[1-2] [runs]"`，需 LLM_API_KEY）先过
+  ProtocolProbe，分片 1 单次共享、分片 2 独立分析加集中整理，默认各 3 遍；同一 FACT
+  协议和判分器记录当前事实保留、旧值污染、实际调用与完整请求 UTF-8 字节，不设效果或
+  成本门槛。2026-11-09 两组各 3 遍均保留 9/9 当前事实、0 旧值污染；共享组共 3 次
+  调用/3075 字节，动态组共 12 次/10006 字节，小样本不外推。完整原文与限制见
+  docs/anthropic_cma_dynamic_dreaming.md。
 - `EpisodicMemory`（`harness.memory` 包，2026-10-31，Definitive Guide
   Ch10）：情境记忆——三大记忆类型里最后一块。失败档案的主导重试理由
   蒸馏成「下次先处理这个」的教训进记忆库（置信 0.85 直接 ACTIVE：轨迹
@@ -855,7 +872,7 @@ ACCEPT 瞎改（Addy Osmani「loop engineering」的验证守则：不过就带�
   已接入：realfoldeval（Action 协议）、real（ReAct 场景）、realadvanced
   （HITL + 混合调度两段；客户端层 $web_search 无 Action 协议，刻意不接）、
   supervisorreal 场景一、topologyreal 场景二（分派协议）、memorydreamreal
-  （read_memory / Finish 同题 A/B 协议）。
+  （read_memory / Finish 同题 A/B 协议）、memorydynamicdreamreal（FACT 整理协议）。
   场景（`mvn exec:java@protocolprobe`）三幕：剧本通过放行、剧本闲聊
   拦截（探针之外 0 调用）、真实双探（裸 prompt 挂 / 带协议过，kimi-k2
   实测复现）。
